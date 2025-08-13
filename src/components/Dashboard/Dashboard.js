@@ -106,14 +106,14 @@ const Dashboard = () => {
   };
 
   return (
-    <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh', pb: 12 }}>
-      <Container maxWidth="lg" sx={{ pt: 3 }}>
+    <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="lg" sx={{ pt: 2, px: { xs: 2, sm: 3 } }}>
         {/* Welcome Section */}
         <Paper
           elevation={0}
           sx={{
-            p: 4,
-            mb: 4,
+            p: { xs: 2, sm: 3, md: 4 },
+            mb: 3,
             backgroundColor: 'background.paper',
             border: '1px solid',
             borderColor: 'grey.200',
@@ -122,14 +122,33 @@ const Dashboard = () => {
           }}
         >
           <Box sx={{ position: 'relative', zIndex: 1 }}>
-            <Typography variant="h3" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
+            <Typography 
+              variant="h3" 
+              fontWeight="700" 
+              color="text.primary" 
+              sx={{ 
+                mb: 1,
+                fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' }
+              }}
+            >
               Welcome back, {user?.name}! 👋
             </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography 
+              variant="h6" 
+              color="text.secondary" 
+              sx={{ 
+                mb: 2,
+                fontSize: { xs: '1rem', sm: '1.25rem' }
+              }}
+            >
               Ready to find your perfect match today?
             </Typography>
             
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={2} 
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+            >
               <Button
                 variant="contained"
                 size="large"
@@ -166,17 +185,18 @@ const Dashboard = () => {
           />
         </Paper>
 
-        <Grid container spacing={4}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {/* Stats Cards */}
           <Grid item xs={6} sm={3}>
             <Paper 
               elevation={0}
               sx={{ 
-                p: 3, 
+                p: { xs: 2, sm: 3 }, 
                 textAlign: 'center',
                 border: '1px solid',
                 borderColor: 'grey.200',
                 transition: 'all 0.2s ease',
+                height: '100%',
                 '&:hover': {
                   transform: 'translateY(-2px)',
                   boxShadow: 2,
@@ -188,22 +208,34 @@ const Dashboard = () => {
                 sx={{
                   backgroundColor: 'error.light',
                   color: 'error.main',
-                  width: 48,
-                  height: 48,
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   mx: 'auto',
-                  mb: 2,
+                  mb: { xs: 1, sm: 2 },
                 }}
               >
-                <Favorite />
+                <Favorite sx={{ fontSize: { xs: 20, sm: 24 } }} />
               </Box>
-              <Typography variant="h4" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="h4" 
+                fontWeight="700" 
+                color="text.primary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '1.5rem', sm: '2rem' }
+                }}
+              >
                 {stats.matches}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+              >
                 New Matches
               </Typography>
             </Paper>
@@ -213,11 +245,12 @@ const Dashboard = () => {
             <Paper 
               elevation={0}
               sx={{ 
-                p: 3, 
+                p: { xs: 2, sm: 3 }, 
                 textAlign: 'center',
                 border: '1px solid',
                 borderColor: 'grey.200',
                 transition: 'all 0.2s ease',
+                height: '100%',
                 '&:hover': {
                   transform: 'translateY(-2px)',
                   boxShadow: 2,
@@ -229,22 +262,34 @@ const Dashboard = () => {
                 sx={{
                   backgroundColor: 'secondary.light',
                   color: 'secondary.main',
-                  width: 48,
-                  height: 48,
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   mx: 'auto',
-                  mb: 2,
+                  mb: { xs: 1, sm: 2 },
                 }}
               >
-                <TrendingUp />
+                <TrendingUp sx={{ fontSize: { xs: 20, sm: 24 } }} />
               </Box>
-              <Typography variant="h4" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="h4" 
+                fontWeight="700" 
+                color="text.primary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '1.5rem', sm: '2rem' }
+                }}
+              >
                 {stats.likes}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+              >
                 Likes Received
               </Typography>
             </Paper>
@@ -254,11 +299,12 @@ const Dashboard = () => {
             <Paper 
               elevation={0}
               sx={{ 
-                p: 3, 
+                p: { xs: 2, sm: 3 }, 
                 textAlign: 'center',
                 border: '1px solid',
                 borderColor: 'grey.200',
                 transition: 'all 0.2s ease',
+                height: '100%',
                 '&:hover': {
                   transform: 'translateY(-2px)',
                   boxShadow: 2,
@@ -270,22 +316,34 @@ const Dashboard = () => {
                 sx={{
                   backgroundColor: 'warning.light',
                   color: 'warning.main',
-                  width: 48,
-                  height: 48,
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   mx: 'auto',
-                  mb: 2,
+                  mb: { xs: 1, sm: 2 },
                 }}
               >
-                <Event />
+                <Event sx={{ fontSize: { xs: 20, sm: 24 } }} />
               </Box>
-              <Typography variant="h4" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="h4" 
+                fontWeight="700" 
+                color="text.primary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '1.5rem', sm: '2rem' }
+                }}
+              >
                 {stats.events}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+              >
                 Events Joined
               </Typography>
             </Paper>
@@ -295,11 +353,12 @@ const Dashboard = () => {
             <Paper 
               elevation={0}
               sx={{ 
-                p: 3, 
+                p: { xs: 2, sm: 3 }, 
                 textAlign: 'center',
                 border: '1px solid',
                 borderColor: 'grey.200',
                 transition: 'all 0.2s ease',
+                height: '100%',
                 '&:hover': {
                   transform: 'translateY(-2px)',
                   boxShadow: 2,
@@ -311,22 +370,34 @@ const Dashboard = () => {
                 sx={{
                   backgroundColor: 'info.light',
                   color: 'info.main',
-                  width: 48,
-                  height: 48,
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   mx: 'auto',
-                  mb: 2,
+                  mb: { xs: 1, sm: 2 },
                 }}
               >
-                <Chat />
+                <Chat sx={{ fontSize: { xs: 20, sm: 24 } }} />
               </Box>
-              <Typography variant="h4" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="h4" 
+                fontWeight="700" 
+                color="text.primary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '1.5rem', sm: '2rem' }
+                }}
+              >
                 {stats.messages}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+              >
                 New Messages
               </Typography>
             </Paper>
@@ -337,55 +408,79 @@ const Dashboard = () => {
             <Paper 
               elevation={0}
               sx={{ 
-                p: 4, 
+                p: { xs: 2, sm: 3, md: 4 }, 
                 border: '1px solid',
                 borderColor: 'grey.200',
               }}
             >
-              <Typography variant="h5" fontWeight="700" color="text.primary" sx={{ mb: 3 }}>
+              <Typography 
+                variant="h5" 
+                fontWeight="700" 
+                color="text.primary" 
+                sx={{ 
+                  mb: { xs: 2, sm: 3 },
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                }}
+              >
                 Quick Actions
               </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={3}>
+              <Grid container spacing={{ xs: 1, sm: 2, md: 3 }}>
+                <Grid item xs={6} sm={6} md={3}>
                   <Button
                     fullWidth
                     variant="contained"
                     startIcon={<Favorite />}
                     onClick={() => navigate('/matching')}
-                    sx={{ py: 2, justifyContent: 'flex-start' }}
+                    sx={{ 
+                      py: { xs: 1.5, sm: 2 }, 
+                      justifyContent: 'flex-start',
+                      fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                    }}
                   >
                     Start Matching
                   </Button>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={6} sm={6} md={3}>
                   <Button
                     fullWidth
                     variant="outlined"
                     startIcon={<Event />}
                     onClick={() => navigate('/events')}
-                    sx={{ py: 2, justifyContent: 'flex-start' }}
+                    sx={{ 
+                      py: { xs: 1.5, sm: 2 }, 
+                      justifyContent: 'flex-start',
+                      fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                    }}
                   >
                     Browse Events
                   </Button>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={6} sm={6} md={3}>
                   <Button
                     fullWidth
                     variant="outlined"
                     startIcon={<Chat />}
                     onClick={() => navigate('/chats')}
-                    sx={{ py: 2, justifyContent: 'flex-start' }}
+                    sx={{ 
+                      py: { xs: 1.5, sm: 2 }, 
+                      justifyContent: 'flex-start',
+                      fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                    }}
                   >
                     View Messages
                   </Button>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={6} sm={6} md={3}>
                   <Button
                     fullWidth
                     variant="outlined"
                     startIcon={<SmartToy />}
                     onClick={handleOpenAIChat}
-                    sx={{ py: 2, justifyContent: 'flex-start' }}
+                    sx={{ 
+                      py: { xs: 1.5, sm: 2 }, 
+                      justifyContent: 'flex-start',
+                      fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                    }}
                   >
                     AI Coach
                   </Button>
@@ -394,19 +489,26 @@ const Dashboard = () => {
             </Paper>
           </Grid>
 
-          {/* Recent Matches */}
-          <Grid item xs={12} lg={6}>
+          {/* Recent Matches & Upcoming Events Row */}
+          <Grid item xs={12} md={6}>
             <Paper 
               elevation={0}
               sx={{ 
-                p: 4, 
+                p: { xs: 2, sm: 3, md: 4 }, 
                 border: '1px solid',
                 borderColor: 'grey.200',
                 height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h5" fontWeight="700" color="text.primary">
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography 
+                  variant="h5" 
+                  fontWeight="700" 
+                  color="text.primary"
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Recent Matches
                 </Typography>
                 <IconButton size="small" sx={{ color: 'text.secondary' }}>
@@ -414,14 +516,14 @@ const Dashboard = () => {
                 </IconButton>
               </Box>
               
-              <Stack spacing={2}>
+              <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
                 {recentMatches.map((match) => (
                   <Box
                     key={match.id}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      p: 2,
+                      p: { xs: 1.5, sm: 2 },
                       backgroundColor: 'background.default',
                       borderRadius: 2,
                       cursor: 'pointer',
@@ -435,13 +537,22 @@ const Dashboard = () => {
                   >
                     <Avatar
                       src={match.image}
-                      sx={{ width: 48, height: 48, mr: 2 }}
+                      sx={{ width: { xs: 40, sm: 48 }, height: { xs: 40, sm: 48 }, mr: 2 }}
                     />
                     <Box sx={{ flexGrow: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="600" color="text.primary">
+                      <Typography 
+                        variant="subtitle1" 
+                        fontWeight="600" 
+                        color="text.primary"
+                        sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                      >
                         {match.name}, {match.age}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                      >
                         {match.lastActive}
                       </Typography>
                     </Box>
@@ -451,10 +562,14 @@ const Dashboard = () => {
                           label="Mutual"
                           size="small"
                           color="secondary"
-                          sx={{ fontWeight: 500 }}
+                          sx={{ 
+                            fontWeight: 500,
+                            fontSize: { xs: '0.625rem', sm: '0.75rem' },
+                            height: { xs: 20, sm: 24 }
+                          }}
                         />
                       )}
-                      <ArrowForward sx={{ color: 'text.secondary', fontSize: 20 }} />
+                      <ArrowForward sx={{ color: 'text.secondary', fontSize: { xs: 16, sm: 20 } }} />
                     </Box>
                   </Box>
                 ))}
@@ -464,26 +579,37 @@ const Dashboard = () => {
                 fullWidth
                 variant="text"
                 onClick={() => navigate('/matching')}
-                sx={{ mt: 3, color: 'secondary.main', fontWeight: 500 }}
+                sx={{ 
+                  mt: 2, 
+                  color: 'secondary.main', 
+                  fontWeight: 500,
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
               >
                 Find More Matches
               </Button>
             </Paper>
           </Grid>
 
-          {/* Upcoming Events */}
-          <Grid item xs={12} lg={6}>
+          <Grid item xs={12} md={6}>
             <Paper 
               elevation={0}
               sx={{ 
-                p: 4, 
+                p: { xs: 2, sm: 3, md: 4 }, 
                 border: '1px solid',
                 borderColor: 'grey.200',
                 height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h5" fontWeight="700" color="text.primary">
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography 
+                  variant="h5" 
+                  fontWeight="700" 
+                  color="text.primary"
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Upcoming Events
                 </Typography>
                 <IconButton size="small" sx={{ color: 'text.secondary' }}>
@@ -491,12 +617,12 @@ const Dashboard = () => {
                 </IconButton>
               </Box>
               
-              <Stack spacing={2}>
+              <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
                 {upcomingEvents.map((event) => (
                   <Box
                     key={event.id}
                     sx={{
-                      p: 2,
+                      p: { xs: 1.5, sm: 2 },
                       backgroundColor: 'background.default',
                       borderRadius: 2,
                       cursor: 'pointer',
@@ -509,33 +635,57 @@ const Dashboard = () => {
                     onClick={() => navigate('/events')}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="600" color="text.primary">
+                      <Typography 
+                        variant="subtitle1" 
+                        fontWeight="600" 
+                        color="text.primary"
+                        sx={{ 
+                          fontSize: { xs: '0.875rem', sm: '1rem' },
+                          lineHeight: 1.2
+                        }}
+                      >
                         {event.title}
                       </Typography>
                       <Chip 
                         label={event.category} 
                         size="small" 
                         variant="outlined"
-                        sx={{ fontSize: '0.75rem' }}
+                        sx={{ 
+                          fontSize: { xs: '0.625rem', sm: '0.75rem' },
+                          height: { xs: 20, sm: 24 }
+                        }}
                       />
                     </Box>
                     
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mb: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Schedule sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        <Typography variant="body2" color="text.secondary">
+                        <Schedule sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary"
+                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                        >
                           {event.date}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        <Typography variant="body2" color="text.secondary">
+                        <LocationOn sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary"
+                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                        >
                           {event.location}
                         </Typography>
                       </Box>
-                    </Box>
+                    </Stack>
                     
-                    <Typography variant="caption" color="secondary.main" fontWeight="500">
+                    <Typography 
+                      variant="caption" 
+                      color="secondary.main" 
+                      fontWeight="500"
+                      sx={{ fontSize: { xs: '0.625rem', sm: '0.75rem' } }}
+                    >
                       {event.attendees} people attending
                     </Typography>
                   </Box>
@@ -546,7 +696,12 @@ const Dashboard = () => {
                 fullWidth
                 variant="text"
                 onClick={() => navigate('/events')}
-                sx={{ mt: 3, color: 'secondary.main', fontWeight: 500 }}
+                sx={{ 
+                  mt: 2, 
+                  color: 'secondary.main', 
+                  fontWeight: 500,
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
               >
                 View All Events
               </Button>
@@ -558,22 +713,46 @@ const Dashboard = () => {
             <Paper 
               elevation={0}
               sx={{ 
-                p: 4, 
+                p: { xs: 2, sm: 3, md: 4 }, 
                 border: '1px solid',
                 borderColor: 'grey.200',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: { xs: 'flex-start', sm: 'center' }, 
+                justifyContent: 'space-between', 
+                mb: 2,
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 1, sm: 0 }
+              }}>
                 <Box>
-                  <Typography variant="h5" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
+                  <Typography 
+                    variant="h5" 
+                    fontWeight="700" 
+                    color="text.primary" 
+                    sx={{ 
+                      mb: 1,
+                      fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                    }}
+                  >
                     Profile Completion
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Complete your profile to get better matches and increase visibility
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                  >
+                    Complete your profile to get better matches
                   </Typography>
                 </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="h4" fontWeight="700" color="success.main">
+                <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+                  <Typography 
+                    variant="h4" 
+                    fontWeight="700" 
+                    color="success.main"
+                    sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}
+                  >
                     85%
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -586,7 +765,7 @@ const Dashboard = () => {
                 variant="determinate"
                 value={85}
                 sx={{
-                  height: 8,
+                  height: { xs: 6, sm: 8 },
                   borderRadius: 4,
                   backgroundColor: 'grey.200',
                   '& .MuiLinearProgress-bar': {
@@ -597,15 +776,29 @@ const Dashboard = () => {
                 }}
               />
               
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 1, sm: 0 }
+              }}>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary"
+                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                >
                   Add more photos and interests to reach 100%
                 </Typography>
                 <Button
                   variant="outlined"
                   size="small"
                   onClick={() => navigate('/profile')}
-                  sx={{ fontWeight: 500 }}
+                  sx={{ 
+                    fontWeight: 500,
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    alignSelf: { xs: 'flex-start', sm: 'auto' }
+                  }}
                 >
                   Complete Profile
                 </Button>
