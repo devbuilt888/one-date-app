@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -20,6 +20,7 @@ import {
   Stack,
   Badge,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Edit,
@@ -35,40 +36,175 @@ import {
   Close,
 } from '@mui/icons-material';
 import { useAuth } from '../../App';
+import { supabase, profiles } from '../../lib/supabase';
+import { getCurrentLocation } from '../../utils/geolocation';
+import ImageUpload from './ImageUpload';
+import CreateProfilePrompt from './CreateProfilePrompt';
 
 const ProfilePage = () => {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [hasProfile, setHasProfile] = useState(false);
   const [profileData, setProfileData] = useState({
-    name: user?.name || 'Demo User',
-    age: user?.age || '25',
-    bio: user?.bio || 'Passionate about life, love, and meaningful connections. Always up for an adventure!',
-    location: user?.location || 'New York, NY',
-    work: 'Senior Product Designer',
-    education: 'New York University',
-    interests: ['Travel', 'Photography', 'Yoga', 'Coffee', 'Music', 'Art'],
-    gender: user?.gender || 'female',
-    interestedIn: user?.interestedIn || 'male',
-    photos: user?.photos || [
-      '/images/users/sarahJohnson.jpeg', 
-      '/images/users/emmaWilson.jpeg', 
-      '/images/users/oliviaBrown.jpeg'
-    ],
-    height: '5\'6"',
-    exercise: 'Regularly',
-    drinking: 'Socially',
-    smoking: 'Never',
-    children: 'Want someday',
+    display_name: '',
+    age: '',
+    bio: '',
+    location: '',
+    work: '',
+    education: '',
+    interests: [],
+    gender: '',
+    preferences_gender: [],
+    photo_urls: [],
+    height: '',
+    exercise: '',
+    drinking: '',
+    smoking: '',
+    children: '',
+    lat: null,
+    lng: null,
+    geohash: '',
   });
   const [newInterest, setNewInterest] = useState('');
+
+  // Fetch user profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        const { data, error } = await profiles.getById(user.id);
+        
+        if (error) {
+          console.error('Error fetching profile:', error);
+          // If no profile exists, show create profile prompt
+          if (error.code === 'PGRST116') {
+            console.log('No profile found, showing create profile prompt...');
+            setHasProfile(false);
+            setProfileData({
+              display_name: user?.user_metadata?.display_name || user?.email?.split('@')[0] || '',
+              age: '',
+              bio: '',
+              location: '',
+              work: '',
+              education: '',
+              interests: [],
+              gender: '',
+              preferences_gender: [],
+              photo_urls: [],
+              height: '',
+              exercise: '',
+              drinking: '',
+              smoking: '',
+              children: '',
+              lat: null,
+              lng: null,
+              geohash: '',
+            });
+          } else {
+            setError('Failed to load profile data');
+            return;
+          }
+        } else if (data) {
+          setHasProfile(true);
+          setProfileData({
+            display_name: data.display_name || '',
+            age: data.age || '',
+            bio: data.bio || '',
+            location: data.location || '',
+            work: data.work || '',
+            education: data.education || '',
+            interests: data.interests || [],
+            gender: data.gender || '',
+            preferences_gender: data.preferences_gender || [],
+            photo_urls: data.photo_urls || [],
+            height: data.height || '',
+            exercise: data.exercise || '',
+            drinking: data.drinking || '',
+            smoking: data.smoking || '',
+            children: data.children || '',
+            lat: data.lat,
+            lng: data.lng,
+            geohash: data.geohash || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        setError('Failed to load profile data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
 
   const handleChange = (field) => (event) => {
     setProfileData({ ...profileData, [field]: event.target.value });
   };
 
-  const handleSave = () => {
-    setIsEditing(false);
-    // Here you would typically save to backend
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError('');
+      setSuccess('');
+      
+      // Get user's location if not already set
+      let locationData = { lat: profileData.lat, lng: profileData.lng, geohash: profileData.geohash };
+      
+      if (!profileData.lat || !profileData.lng) {
+        try {
+          const location = await getCurrentLocation();
+          locationData = {
+            lat: location.lat,
+            lng: location.lng,
+            geohash: location.geohash
+          };
+        } catch (error) {
+          console.warn('Could not get location:', error);
+        }
+      }
+      
+      // Only include columns that are known to exist in the current schema
+      const profileToSave = {
+        id: user.id,
+        display_name: profileData.display_name || null,
+        age: profileData.age ? parseInt(profileData.age) : null,
+        bio: profileData.bio || null,
+        interests: profileData.interests || [],
+        gender: profileData.gender || null,
+        preferences_gender: Array.isArray(profileData.preferences_gender)
+          ? profileData.preferences_gender
+          : (profileData.preferences_gender ? [profileData.preferences_gender] : []),
+        photo_urls: profileData.photo_urls || [],
+        ...locationData,
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error } = await profiles.upsert(profileToSave);
+      
+      if (error) {
+        setError(`Failed to save profile: ${error.message}`);
+        return;
+      }
+      
+      setSuccess('Profile saved successfully!');
+      setIsEditing(false);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+      
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setError(`Failed to save profile: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -110,6 +246,42 @@ const ProfilePage = () => {
     });
   };
 
+  const handlePhotosUpdate = (newPhotos) => {
+    setProfileData({
+      ...profileData,
+      photo_urls: newPhotos
+    });
+  };
+
+  const handleCreateProfile = () => {
+    setIsEditing(true);
+    setHasProfile(true);
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh' 
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show create profile prompt if no profile exists
+  if (!hasProfile) {
+    return (
+      <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh', py: 3 }}>
+        <Container maxWidth="md">
+          <CreateProfilePrompt onCreateProfile={handleCreateProfile} />
+        </Container>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh', py: 3 }}>
       <Container maxWidth="lg">
@@ -124,6 +296,17 @@ const ProfilePage = () => {
             borderColor: 'grey.200',
           }}
         >
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {success}
+            </Alert>
+          )}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
               <Typography variant="h3" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
@@ -156,12 +339,13 @@ const ProfilePage = () => {
                 </Button>
                 <Button
                   variant="contained"
-                  startIcon={<Save />}
+                  startIcon={saving ? <CircularProgress size={20} /> : <Save />}
                   onClick={handleSave}
+                  disabled={saving}
                   size="large"
                   sx={{ px: 3 }}
                 >
-                  Save Changes
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </Stack>
             )}
@@ -172,7 +356,7 @@ const ProfilePage = () => {
           {/* Left Column - Photos */}
           <Grid item xs={12} lg={4}>
             <Stack spacing={4}>
-              {/* Main Photo */}
+              {/* Profile Photos */}
               <Paper 
                 elevation={0}
                 sx={{ 
@@ -181,94 +365,43 @@ const ProfilePage = () => {
                   borderColor: 'grey.200',
                 }}
               >
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                  Profile Photos
-                </Typography>
-                
-                <Box sx={{ position: 'relative', mb: 3 }}>
-                  <Badge
-                    overlap="circular"
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    badgeContent={
-                      <Verified sx={{ color: 'secondary.main', fontSize: 20 }} />
-                    }
-                  >
-                    <Avatar
-                      src={profileData.photos[0]}
-                      sx={{
-                        width: 200,
-                        height: 200,
-                        mx: 'auto',
-                        border: '4px solid',
-                        borderColor: 'background.paper',
-                        boxShadow: 3,
-                      }}
-                    />
-                  </Badge>
-                  {isEditing && (
-                    <IconButton
-                      sx={{
-                        position: 'absolute',
-                        bottom: 8,
-                        right: 8,
-                        backgroundColor: 'background.paper',
-                        border: '2px solid',
-                        borderColor: 'grey.200',
-                        '&:hover': {
-                          backgroundColor: 'grey.50',
-                        },
-                      }}
-                    >
-                      <PhotoCamera />
-                    </IconButton>
-                  )}
-                </Box>
-
-                {/* Additional Photos */}
-                <Grid container spacing={2}>
-                  {profileData.photos.slice(1, 3).map((photo, index) => (
-                    <Grid item xs={6} key={index}>
-                      <Box sx={{ position: 'relative' }}>
-                        <Avatar
-                          src={photo}
-                          variant="rounded"
-                          sx={{
-                            width: '100%',
-                            height: 120,
-                            borderRadius: 2,
-                          }}
-                        />
-                        {isEditing && (
-                          <IconButton
-                            size="small"
-                            sx={{
-                              position: 'absolute',
-                              top: 4,
-                              right: 4,
-                              backgroundColor: 'rgba(0,0,0,0.7)',
-                              color: 'white',
-                              '&:hover': {
-                                backgroundColor: 'rgba(0,0,0,0.8)',
-                              },
-                            }}
-                          >
-                            <PhotoCamera fontSize="small" />
-                          </IconButton>
-                        )}
+                {isEditing ? (
+                  <ImageUpload
+                    userId={user?.id}
+                    currentPhotos={profileData.photo_urls}
+                    onPhotosUpdate={handlePhotosUpdate}
+                    maxPhotos={6}
+                  />
+                ) : (
+                  <Box>
+                    <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
+                      Profile Photos
+                    </Typography>
+                    
+                    {profileData.photo_urls.length > 0 ? (
+                      <Grid container spacing={2}>
+                        {profileData.photo_urls.map((photo, index) => (
+                          <Grid item xs={6} sm={4} key={index}>
+                            <Avatar
+                              src={photo}
+                              variant="rounded"
+                              sx={{
+                                width: '100%',
+                                height: 120,
+                                borderRadius: 2,
+                              }}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No photos uploaded yet
+                        </Typography>
                       </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-
-                {isEditing && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<Add />}
-                    fullWidth
-                    sx={{ mt: 2 }}
-                  >
-                    Add Photo
-                  </Button>
+                    )}
+                  </Box>
                 )}
               </Paper>
 
@@ -328,8 +461,8 @@ const ProfilePage = () => {
                     </Typography>
                     <TextField
                       fullWidth
-                      value={profileData.name}
-                      onChange={handleChange('name')}
+                      value={profileData.display_name}
+                      onChange={handleChange('display_name')}
                       disabled={!isEditing}
                       placeholder="Enter your full name"
                     />
@@ -463,7 +596,7 @@ const ProfilePage = () => {
                     </Typography>
                     <FormControl fullWidth disabled={!isEditing}>
                       <Select
-                        value={profileData.exercise}
+                        value={profileData.exercise || ''}
                         onChange={handleChange('exercise')}
                       >
                         <MenuItem value="Never">Never</MenuItem>
@@ -481,7 +614,7 @@ const ProfilePage = () => {
                     </Typography>
                     <FormControl fullWidth disabled={!isEditing}>
                       <Select
-                        value={profileData.drinking}
+                        value={profileData.drinking || ''}
                         onChange={handleChange('drinking')}
                       >
                         <MenuItem value="Never">Never</MenuItem>
@@ -498,7 +631,7 @@ const ProfilePage = () => {
                     </Typography>
                     <FormControl fullWidth disabled={!isEditing}>
                       <Select
-                        value={profileData.smoking}
+                        value={profileData.smoking || ''}
                         onChange={handleChange('smoking')}
                       >
                         <MenuItem value="Never">Never</MenuItem>
@@ -514,7 +647,7 @@ const ProfilePage = () => {
                     </Typography>
                     <FormControl fullWidth disabled={!isEditing}>
                       <Select
-                        value={profileData.children}
+                        value={profileData.children || ''}
                         onChange={handleChange('children')}
                       >
                         <MenuItem value="Don't want">Don't want</MenuItem>
@@ -602,7 +735,7 @@ const ProfilePage = () => {
                     </Typography>
                     <FormControl fullWidth disabled={!isEditing}>
                       <Select
-                        value={profileData.gender}
+                        value={profileData.gender || ''}
                         onChange={handleChange('gender')}
                       >
                         <MenuItem value="male">Male</MenuItem>
@@ -619,8 +752,8 @@ const ProfilePage = () => {
                     </Typography>
                     <FormControl fullWidth disabled={!isEditing}>
                       <Select
-                        value={profileData.interestedIn}
-                        onChange={handleChange('interestedIn')}
+                        value={profileData.preferences_gender?.[0] || ''}
+                        onChange={handleChange('preferences_gender')}
                       >
                         <MenuItem value="male">Male</MenuItem>
                         <MenuItem value="female">Female</MenuItem>

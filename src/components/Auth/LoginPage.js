@@ -37,25 +37,22 @@ const LoginPage = () => {
     setError('');
     setLoading(true);
 
-    // Simulate authentication
-    if (email && password) {
-      // Mock user data
-      const userData = {
-        id: '1',
-        name: 'Demo User',
-        email: email,
-        age: 25,
-        bio: 'Love adventure and new experiences!',
-        photos: ['/images/users/sarahJohnson.jpeg']
-      };
-      
-      setTimeout(() => {
-        login(userData);
-        navigate('/dashboard');
-        setLoading(false);
-      }, 1000);
-    } else {
+    if (!email || !password) {
       setError('Please fill in all fields');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const result = await login(email, password);
+      if (result.success) {
+        navigate('/dashboard');
+      } else {
+        setError(result.error || 'Login failed');
+      }
+    } catch (error) {
+      setError('An unexpected error occurred');
+    } finally {
       setLoading(false);
     }
   };

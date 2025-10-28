@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import {
   Paper,
   Typography,
@@ -58,42 +59,31 @@ const AIChat = ({ isMinimized, onToggleMinimize, onClose }) => {
     setIsLoading(true);
 
     try {
-      const { OpenAI } = await import('openai');
+      // Call our secure Supabase Edge Function instead of OpenAI directly
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('Not authenticated')
+      }
+
+      const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ message: currentMessage }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to get AI response')
+      }
+
+      const aiData = await response.json()
       
-      const openai = new OpenAI({
-        apiKey: process.env.REACT_APP_OPENAI_API_KEY,
-        dangerouslyAllowBrowser: true // Note: In production, use a backend API
-      });
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: `You are a professional dating coach and relationship expert. You help people with:
-- Dating profile optimization
-- Conversation starters and tips
-- First date advice
-- Reading dating signals and body language  
-- Building confidence in dating
-- Relationship advice
-- Dating app strategies
-- Fashion and grooming tips for dates
-
-Keep your responses helpful, encouraging, and professional. Be concise but informative (max 100 words). Always be respectful and inclusive of all relationship types and orientations. Provide actionable advice when possible.`
-          },
-          {
-            role: "user",
-            content: currentMessage
-          }
-        ],
-        max_tokens: 150,
-        temperature: 0.7,
-      });
-
       const aiMessage = {
         id: Date.now() + 1,
-        text: completion.choices[0].message.content,
+        text: aiData.message,
         sender: 'ai',
         timestamp: new Date(),
       };

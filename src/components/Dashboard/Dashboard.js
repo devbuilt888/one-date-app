@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Grid,
@@ -14,6 +14,7 @@ import {
   Stack,
   Divider,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import {
   Favorite,
@@ -30,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../App';
 import { useNavigate } from 'react-router-dom';
+import { supabase, matching, chat, events } from '../../lib/supabase';
 import AIChat from './AIChat';
 
 const Dashboard = () => {
@@ -37,60 +39,57 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [showAIChat, setShowAIChat] = useState(false);
   const [isAIChatMinimized, setIsAIChatMinimized] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    matches: 0,
+    likes: 0,
+    events: 0,
+    messages: 0,
+  });
+  const [recentMatches, setRecentMatches] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
 
-  // Mock data for demonstration
-  const stats = {
-    matches: 12,
-    likes: 34,
-    events: 3,
-    messages: 8,
-  };
+  // Fetch real data from Supabase
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        
+        // Fetch user's matches
+        const { data: matches, error: matchesError } = await matching.getMatches();
+        if (matchesError) {
+          console.error('Error fetching matches:', matchesError);
+          setRecentMatches([]);
+        } else {
+          setRecentMatches(matches || []);
+        }
+        
+        // Fetch upcoming events
+        const { data: eventsData } = await events.getNearby();
+        setUpcomingEvents(eventsData || []);
+        
+        // Calculate stats
+        const matchesCount = matches?.length || 0;
+        const eventsCount = eventsData?.length || 0;
+        
+        setStats({
+          matches: matchesCount,
+          likes: 0, // TODO: Implement likes count
+          events: eventsCount,
+          messages: 0, // TODO: Implement messages count
+        });
+        
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const recentMatches = [
-    {
-      id: 1,
-      name: 'Sarah',
-      age: 26,
-      image: '/images/users/sarahJohnson.jpeg',
-      mutual: true,
-      lastActive: '2h ago',
-    },
-    {
-      id: 2,
-      name: 'Emma',
-      age: 24,
-      image: '/images/users/emmaWilson.jpeg',
-      mutual: false,
-      lastActive: 'Online',
-    },
-    {
-      id: 3,
-      name: 'Olivia',
-      age: 28,
-      image: '/images/users/oliviaBrown.jpeg',
-      mutual: true,
-      lastActive: '1d ago',
-    },
-  ];
-
-  const upcomingEvents = [
-    {
-      id: 1,
-      title: 'Speed Dating Night',
-      date: 'Tonight 8PM',
-      location: 'Downtown Cafe',
-      attendees: 24,
-      category: 'Dating',
-    },
-    {
-      id: 2,
-      title: 'Wine Tasting Experience',
-      date: 'Tomorrow 7PM',
-      location: 'Vintage Cellars',
-      attendees: 16,
-      category: 'Social',
-    },
-  ];
+    fetchDashboardData();
+  }, [user]);
 
   const handleOpenAIChat = () => {
     setShowAIChat(true);
@@ -104,6 +103,19 @@ const Dashboard = () => {
   const handleToggleAIChatMinimize = () => {
     setIsAIChatMinimized(!isAIChatMinimized);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh' 
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh', pb: 4 }}>
@@ -131,7 +143,7 @@ const Dashboard = () => {
                 fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' }
               }}
             >
-              Welcome back, {user?.name}! 👋
+              Welcome back, {user?.user_metadata?.display_name || user?.email}! 👋
             </Typography>
             <Typography 
               variant="h6" 
@@ -517,62 +529,72 @@ const Dashboard = () => {
               </Box>
               
               <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
-                {recentMatches.map((match) => (
-                  <Box
-                    key={match.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      p: { xs: 1.5, sm: 2 },
-                      backgroundColor: 'background.default',
-                      borderRadius: 2,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: 'grey.100',
-                        transform: 'translateX(4px)',
-                      },
-                    }}
-                    onClick={() => navigate('/chats')}
-                  >
-                    <Avatar
-                      src={match.image}
-                      sx={{ width: { xs: 40, sm: 48 }, height: { xs: 40, sm: 48 }, mr: 2 }}
-                    />
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography 
-                        variant="subtitle1" 
-                        fontWeight="600" 
-                        color="text.primary"
-                        sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                {recentMatches.length > 0 ? (
+                  recentMatches.map((match) => {
+                    // Get the other user from the match
+                    const otherUser = match.user_a_id === user?.id ? match.user_b : match.user_a;
+                    return (
+                      <Box
+                        key={match.id}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          p: { xs: 1.5, sm: 2 },
+                          backgroundColor: 'background.default',
+                          borderRadius: 2,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            backgroundColor: 'grey.100',
+                            transform: 'translateX(4px)',
+                          },
+                        }}
+                        onClick={() => navigate('/chats')}
                       >
-                        {match.name}, {match.age}
-                      </Typography>
-                      <Typography 
-                        variant="body2" 
-                        color="text.secondary"
-                        sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                      >
-                        {match.lastActive}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {match.mutual && (
-                        <Chip
-                          label="Mutual"
-                          size="small"
-                          color="secondary"
-                          sx={{ 
-                            fontWeight: 500,
-                            fontSize: { xs: '0.625rem', sm: '0.75rem' },
-                            height: { xs: 20, sm: 24 }
-                          }}
+                        <Avatar
+                          src={otherUser?.photo_urls?.[0] || '/images/users/default-avatar.png'}
+                          sx={{ width: { xs: 40, sm: 48 }, height: { xs: 40, sm: 48 }, mr: 2 }}
                         />
-                      )}
-                      <ArrowForward sx={{ color: 'text.secondary', fontSize: { xs: 16, sm: 20 } }} />
-                    </Box>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography 
+                            variant="subtitle1" 
+                            fontWeight="600" 
+                            color="text.primary"
+                            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                          >
+                            {otherUser?.display_name || 'Unknown User'}, {otherUser?.age || 'N/A'}
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary"
+                            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                          >
+                            Matched {new Date(match.created_at).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip
+                            label="Match"
+                            size="small"
+                            color="secondary"
+                            sx={{ 
+                              fontWeight: 500,
+                              fontSize: { xs: '0.625rem', sm: '0.75rem' },
+                              height: { xs: 20, sm: 24 }
+                            }}
+                          />
+                          <ArrowForward sx={{ color: 'text.secondary', fontSize: { xs: 16, sm: 20 } }} />
+                        </Box>
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No matches yet. Start swiping to find your perfect match!
+                    </Typography>
                   </Box>
-                ))}
+                )}
               </Stack>
               
               <Button
@@ -618,78 +640,86 @@ const Dashboard = () => {
               </Box>
               
               <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
-                {upcomingEvents.map((event) => (
-                  <Box
-                    key={event.id}
-                    sx={{
-                      p: { xs: 1.5, sm: 2 },
-                      backgroundColor: 'background.default',
-                      borderRadius: 2,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: 'grey.100',
-                        transform: 'translateX(4px)',
-                      },
-                    }}
-                    onClick={() => navigate('/events')}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography 
-                        variant="subtitle1" 
-                        fontWeight="600" 
-                        color="text.primary"
-                        sx={{ 
-                          fontSize: { xs: '0.875rem', sm: '1rem' },
-                          lineHeight: 1.2
-                        }}
-                      >
-                        {event.title}
-                      </Typography>
-                      <Chip 
-                        label={event.category} 
-                        size="small" 
-                        variant="outlined"
-                        sx={{ 
-                          fontSize: { xs: '0.625rem', sm: '0.75rem' },
-                          height: { xs: 20, sm: 24 }
-                        }}
-                      />
-                    </Box>
-                    
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mb: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Schedule sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary"
-                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
-                        >
-                          {event.date}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <LocationOn sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary"
-                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
-                        >
-                          {event.location}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                    
-                    <Typography 
-                      variant="caption" 
-                      color="secondary.main" 
-                      fontWeight="500"
-                      sx={{ fontSize: { xs: '0.625rem', sm: '0.75rem' } }}
+                {upcomingEvents.length > 0 ? (
+                  upcomingEvents.map((event) => (
+                    <Box
+                      key={event.id}
+                      sx={{
+                        p: { xs: 1.5, sm: 2 },
+                        backgroundColor: 'background.default',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: 'grey.100',
+                          transform: 'translateX(4px)',
+                        },
+                      }}
+                      onClick={() => navigate('/events')}
                     >
-                      {event.attendees} people attending
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography 
+                          variant="subtitle1" 
+                          fontWeight="600" 
+                          color="text.primary"
+                          sx={{ 
+                            fontSize: { xs: '0.875rem', sm: '1rem' },
+                            lineHeight: 1.2
+                          }}
+                        >
+                          {event.title}
+                        </Typography>
+                        <Chip 
+                          label={event.category} 
+                          size="small" 
+                          variant="outlined"
+                          sx={{ 
+                            fontSize: { xs: '0.625rem', sm: '0.75rem' },
+                            height: { xs: 20, sm: 24 }
+                          }}
+                        />
+                      </Box>
+                      
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mb: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Schedule sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary"
+                            sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                          >
+                            {new Date(event.starts_at).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <LocationOn sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary"
+                            sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                          >
+                            {event.location_name}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      
+                      <Typography 
+                        variant="caption" 
+                        color="secondary.main" 
+                        fontWeight="500"
+                        sx={{ fontSize: { xs: '0.625rem', sm: '0.75rem' } }}
+                      >
+                        {event.description || 'Join us for this event!'}
+                      </Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No upcoming events. Check back later!
                     </Typography>
                   </Box>
-                ))}
+                )}
               </Stack>
               
               <Button
@@ -705,6 +735,326 @@ const Dashboard = () => {
               >
                 View All Events
               </Button>
+            </Paper>
+          </Grid>
+
+          {/* Fun Quizzes Section */}
+          <Grid item xs={12}>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: { xs: 2, sm: 3, md: 4 }, 
+                border: '1px solid',
+                borderColor: 'grey.200',
+                mb: 3,
+              }}
+            >
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                mb: 3,
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 1, sm: 0 }
+              }}>
+                <Box>
+                  <Typography 
+                    variant="h5" 
+                    fontWeight="700" 
+                    color="text.primary" 
+                    sx={{ 
+                      mb: 1,
+                      fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                    }}
+                  >
+                    Fun Quizzes
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                  >
+                    Discover more about yourself with these personality quizzes
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{ 
+                    fontWeight: 500,
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                  }}
+                >
+                  View All
+                </Button>
+              </Box>
+
+              <Grid container spacing={2}>
+                {/* Quiz Cards */}
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Hogwarts House
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          Find out which Hogwarts house you belong to!
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          🏰 Harry Potter
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Ideal Vacation
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          Discover your perfect vacation destination!
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          ✈️ Travel
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Twilight Character
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          Which Twilight character are you?
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          🌙 Twilight
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Love Language
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          Discover your love language!
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          💕 Relationships
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Marvel Hero
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          Which Marvel superhero are you?
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          🦸 Marvel
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Disney Princess
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          Which Disney princess are you?
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          👑 Disney
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Star Wars
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          Which Star Wars character are you?
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          ⭐ Star Wars
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card
+                    sx={{
+                      height: 200,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="700" sx={{ mb: 1, fontSize: '1rem' }}>
+                          Dating Style
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          What's your dating personality?
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          💘 Dating
+                        </Typography>
+                        <ArrowForward sx={{ fontSize: 16 }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
             </Paper>
           </Grid>
 

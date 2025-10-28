@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Container,
   Grid,
@@ -16,104 +16,150 @@ import {
   Divider,
   InputAdornment,
 } from '@mui/material';
-import {
-  Send,
-  Search,
-  MoreVert,
-  Favorite,
-  PhotoCamera,
-  AttachFile,
-} from '@mui/icons-material';
+import { Send, Search, MoreVert, Favorite, PhotoCamera, AttachFile } from '@mui/icons-material';
+import { useAuth } from '../../App';
+import { chat } from '../../lib/supabase';
 
 const ChatsPage = () => {
+  const { user } = useAuth();
   const [selectedChat, setSelectedChat] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Mock chat data
-  const chats = [
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      avatar: '/images/users/sarahJohnson.jpeg',
-      lastMessage: 'That sounds amazing! I love hiking too 😊',
-      timestamp: '2 min ago',
-      unread: 2,
-      online: true,
-      messages: [
-        { id: 1, sender: 'Sarah', message: 'Hi! Thanks for the like!', timestamp: '10:30 AM', isMine: false },
-        { id: 2, sender: 'You', message: 'Hey Sarah! You seem really interesting. Love your hiking photos!', timestamp: '10:32 AM', isMine: true },
-        { id: 3, sender: 'Sarah', message: 'Thank you! I see you\'re into photography too. We should go on a photo walk sometime!', timestamp: '10:35 AM', isMine: false },
-        { id: 4, sender: 'You', message: 'That sounds amazing! I know some great spots around the city.', timestamp: '10:37 AM', isMine: true },
-        { id: 5, sender: 'Sarah', message: 'That sounds amazing! I love hiking too 😊', timestamp: '10:40 AM', isMine: false },
-      ]
-    },
-    {
-      id: 2,
-      name: 'Emma Wilson',
-      avatar: '/images/users/emmaWilson.jpeg',
-      lastMessage: 'Would love to check out that new restaurant!',
-      timestamp: '1 hour ago',
-      unread: 0,
-      online: false,
-      messages: [
-        { id: 1, sender: 'Emma', message: 'Hey! How\'s your day going?', timestamp: '9:15 AM', isMine: false },
-        { id: 2, sender: 'You', message: 'Pretty good! Just finished work. How about you?', timestamp: '9:18 AM', isMine: true },
-        { id: 3, sender: 'Emma', message: 'Same here! I saw you like Italian food. Have you tried that new place downtown?', timestamp: '9:20 AM', isMine: false },
-        { id: 4, sender: 'You', message: 'No, but I\'ve been wanting to! Want to check it out together?', timestamp: '9:22 AM', isMine: true },
-        { id: 5, sender: 'Emma', message: 'Would love to check out that new restaurant!', timestamp: '9:25 AM', isMine: false },
-      ]
-    },
-    {
-      id: 3,
-      name: 'Olivia Brown',
-      avatar: '/images/users/oliviaBrown.jpeg',
-      lastMessage: 'The art gallery was incredible!',
-      timestamp: '3 hours ago',
-      unread: 1,
-      online: true,
-      messages: [
-        { id: 1, sender: 'Olivia', message: 'The art gallery was incredible!', timestamp: '2:45 PM', isMine: false },
-      ]
-    },
-    {
-      id: 4,
-      name: 'Ava Davis',
-      avatar: '/images/users/avaDavis.jpeg',
-      lastMessage: 'Let\'s plan that workout session!',
-      timestamp: 'Yesterday',
-      unread: 0,
-      online: false,
-      messages: [
-        { id: 1, sender: 'Ava', message: 'Hey! Loved your profile. We have so much in common!', timestamp: 'Yesterday 6:20 PM', isMine: false },
-        { id: 2, sender: 'You', message: 'Thanks! I see you\'re really into fitness. That\'s awesome!', timestamp: 'Yesterday 6:25 PM', isMine: true },
-        { id: 3, sender: 'Ava', message: 'Let\'s plan that workout session!', timestamp: 'Yesterday 6:30 PM', isMine: false },
-      ]
-    },
-  ];
+  useEffect(() => {
+    const loadConversations = async () => {
+      try {
+        const { data, error } = await chat.getConversations();
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('Error loading conversations:', error);
+          setConversations([]);
+          return;
+        }
+        // Filter for conversations where current user is part of the match
+        const visible = (data || []).filter((c) =>
+          c.match?.user_a?.id === user?.id || c.match?.user_b?.id === user?.id
+        );
+        
+        // Map conversations to UI shape
+        const mapped = visible.map((c) => {
+          const other = c.match?.user_a?.id === user?.id ? c.match?.user_b : c.match?.user_a;
+          return {
+            id: c.id,
+            name: other?.display_name || 'Unknown',
+            avatar: other?.photo_urls?.[0] || '/images/users/default-avatar.png',
+            lastMessage: 'Start a conversation!',
+            timestamp: new Date(c.created_at).toLocaleDateString(),
+            unread: 0,
+            online: false,
+            messages: [],
+            match: c.match,
+            otherUser: other
+          };
+        });
+        setConversations(mapped);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Conversations exception:', e);
+        setConversations([]);
+      }
+    };
+    loadConversations();
+  }, [user?.id]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (newMessage.trim() && selectedChat) {
-      // In a real app, this would send the message to a backend
-      const updatedChat = {
-        ...selectedChat,
-        messages: [
-          ...selectedChat.messages,
-          {
-            id: selectedChat.messages.length + 1,
-            sender: 'You',
-            message: newMessage,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isMine: true,
-          }
-        ]
-      };
-      setSelectedChat(updatedChat);
-      setNewMessage('');
+      try {
+        const { data, error } = await chat.sendMessage(selectedChat.id, newMessage);
+        if (error) {
+          console.error('Error sending message:', error);
+          return;
+        }
+        
+        // Add the new message to the current chat
+        const updatedChat = {
+          ...selectedChat,
+          messages: [
+            ...selectedChat.messages,
+            {
+              id: data[0].id,
+              sender: 'You',
+              message: newMessage,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              isMine: true,
+            }
+          ]
+        };
+        setSelectedChat(updatedChat);
+        setNewMessage('');
+      } catch (e) {
+        console.error('Error sending message:', e);
+      }
     }
   };
 
-  const filteredChats = chats.filter(chat =>
+  // Load messages when a chat is selected
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!selectedChat) return;
+      
+      try {
+        setLoadingMessages(true);
+        const { data, error } = await chat.getMessages(selectedChat.id);
+        if (error) {
+          console.error('Error loading messages:', error);
+          setMessages([]);
+          return;
+        }
+        
+        // Transform messages to UI format
+        const transformedMessages = (data || []).map(msg => ({
+          id: msg.id,
+          sender: msg.sender?.display_name || 'Unknown',
+          message: msg.text,
+          timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isMine: msg.sender_id === user?.id,
+        }));
+        
+        setMessages(transformedMessages);
+      } catch (e) {
+        console.error('Error loading messages:', e);
+        setMessages([]);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+    
+    loadMessages();
+  }, [selectedChat, user?.id]);
+
+  // Subscribe to new messages for the selected chat
+  useEffect(() => {
+    if (!selectedChat) return;
+    
+    const subscription = chat.subscribeToMessages(selectedChat.id, (payload) => {
+      if (payload.eventType === 'INSERT') {
+        const newMessage = payload.new;
+        const transformedMessage = {
+          id: newMessage.id,
+          sender: newMessage.sender_id === user?.id ? 'You' : selectedChat.otherUser?.display_name || 'Other User',
+          message: newMessage.text,
+          timestamp: new Date(newMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isMine: newMessage.sender_id === user?.id,
+        };
+        setMessages(prev => [...prev, transformedMessage]);
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [selectedChat, user?.id]);
+
+  const filteredChats = conversations.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -125,7 +171,7 @@ const ChatsPage = () => {
 
       <Grid container spacing={2} sx={{ height: '70vh' }}>
         {/* Chat List */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper elevation={3} sx={{ height: '100%', borderRadius: 3, overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: '1px solid #eee' }}>
               <TextField
@@ -219,7 +265,7 @@ const ChatsPage = () => {
         </Grid>
 
         {/* Chat Window */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper elevation={3} sx={{ height: '100%', borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
             {selectedChat ? (
               <>
@@ -261,7 +307,12 @@ const ChatsPage = () => {
 
                 {/* Messages */}
                 <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-                  {selectedChat.messages.map((message) => (
+                  {loadingMessages ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Loading messages...</Typography>
+                    </Box>
+                  ) : (
+                    messages.map((message) => (
                     <Box
                       key={message.id}
                       sx={{
@@ -293,7 +344,8 @@ const ChatsPage = () => {
                         </Typography>
                       </Box>
                     </Box>
-                  ))}
+                    ))
+                  )}
                 </Box>
 
                 {/* Message Input */}

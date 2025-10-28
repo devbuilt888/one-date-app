@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Grid,
@@ -22,6 +22,7 @@ import {
   Stack,
   Divider,
   Badge,
+  CircularProgress,
 } from '@mui/material';
 import {
   Event,
@@ -36,143 +37,114 @@ import {
   Person,
   AttachMoney,
 } from '@mui/icons-material';
+import { useAuth } from '../../App';
+import * as supabaseLib from '../../lib/supabase';
 
 const EventsPage = () => {
+  const { user } = useAuth();
   const [currentTab, setCurrentTab] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [joinedEvents, setJoinedEvents] = useState([1, 5]);
-  const [likedEvents, setLikedEvents] = useState([2, 4]);
-
-  const events = [
-    {
-      id: 1,
-      title: 'Speed Dating Night',
-      description: 'Meet multiple potential matches in one fun evening! Structured mini-dates with great conversation starters and a relaxed atmosphere.',
-      date: 'Tonight',
-      time: '8:00 PM',
-      location: 'Downtown Cafe',
-      address: '123 Main St, New York, NY',
-      price: '$25',
-      capacity: 30,
-      attendees: 24,
-      category: 'Dating',
-      image: '/images/events/quickDate.png',
-      attendeePhotos: ['/images/users/sarahJohnson.jpeg', '/images/users/emmaWilson.jpeg', '/images/users/oliviaBrown.jpeg'],
-      ageRange: '25-35',
-      host: 'OneDate Events',
-      featured: true,
-    },
-    {
-      id: 2,
-      title: 'Wine Tasting & Mingling',
-      description: 'Discover new wines while meeting new people in a relaxed, sophisticated atmosphere. Professional sommelier will guide you through premium selections.',
-      date: 'Tomorrow',
-      time: '7:00 PM',
-      location: 'Vintage Cellars',
-      address: '456 Wine St, Brooklyn, NY',
-      price: '$40',
-      capacity: 20,
-      attendees: 16,
-      category: 'Social',
-      image: '/images/events/wineTasting.png',
-      attendeePhotos: ['/images/users/avaDavis.jpeg', '/images/users/emmaWilson.jpeg'],
-      ageRange: '28-40',
-      host: 'Wine & Dine Co.',
-      featured: false,
-    },
-    {
-      id: 3,
-      title: 'Cooking Class Date',
-      description: 'Learn to make pasta from scratch while connecting with fellow food lovers. Perfect for breaking the ice and creating delicious memories!',
-      date: 'This Saturday',
-      time: '3:00 PM',
-      location: 'Culinary Studio',
-      address: '789 Chef Ave, Manhattan, NY',
-      price: '$55',
-      capacity: 16,
-      attendees: 12,
-      category: 'Activity',
-      image: '/images/events/cookingClass.png',
-      attendeePhotos: ['/images/users/sarahJohnson.jpeg', '/images/users/oliviaBrown.jpeg', '/images/users/avaDavis.jpeg'],
-      ageRange: '24-38',
-      host: 'Chef\'s Table',
-      featured: true,
-    },
-    {
-      id: 4,
-      title: 'Rooftop Mixer',
-      description: 'Enjoy stunning city views while meeting new people at this exclusive rooftop gathering. Live DJ and craft cocktails included.',
-      date: 'Friday',
-      time: '6:30 PM',
-      location: 'Sky Lounge',
-      address: '321 High St, Manhattan, NY',
-      price: '$30',
-      capacity: 40,
-      attendees: 35,
-      category: 'Social',
-      image: '/images/events/rooftopMixer.png',
-      attendeePhotos: ['/images/users/emmaWilson.jpeg', '/images/users/sarahJohnson.jpeg', '/images/users/oliviaBrown.jpeg', '/images/users/avaDavis.jpeg'],
-      ageRange: '26-42',
-      host: 'City Socials',
-      featured: false,
-    },
-    {
-      id: 5,
-      title: 'Art Gallery Walk',
-      description: 'Explore contemporary art while engaging in meaningful conversations with like-minded individuals. Expert curator will provide insights.',
-      date: 'Sunday',
-      time: '2:00 PM',
-      location: 'Modern Art Museum',
-      address: '654 Culture Blvd, Manhattan, NY',
-      price: '$20',
-      capacity: 25,
-      attendees: 18,
-      category: 'Cultural',
-      image: '/images/events/artGallery.png',
-      attendeePhotos: ['/images/users/oliviaBrown.jpeg', '/images/users/avaDavis.jpeg'],
-      ageRange: '25-45',
-      host: 'Art Lovers NYC',
-      featured: false,
-    },
-    {
-      id: 6,
-      title: 'Hiking & Brunch',
-      description: 'Start with a scenic hike and end with a delicious brunch. Perfect for outdoor enthusiasts and health-conscious singles!',
-      date: 'Next Saturday',
-      time: '9:00 AM',
-      location: 'Central Park',
-      address: 'Central Park, New York, NY',
-      price: '$35',
-      capacity: 20,
-      attendees: 15,
-      category: 'Outdoor',
-      image: '/images/events/hikingPicnic.png',
-      attendeePhotos: ['/images/users/sarahJohnson.jpeg', '/images/users/emmaWilson.jpeg', '/images/users/avaDavis.jpeg'],
-      ageRange: '22-35',
-      host: 'Adventure Dates',
-      featured: true,
-    },
-  ];
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const categories = ['All', 'Dating', 'Social', 'Activity', 'Cultural', 'Outdoor'];
+
+  // Load events from database
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        setLoading(true);
+        
+        // Debug: Check if events object exists
+        console.log('Supabase lib:', supabaseLib);
+        console.log('Events object:', supabaseLib.events);
+        console.log('Events.getAll:', supabaseLib.events?.getAll);
+        
+        if (!supabaseLib.events || typeof supabaseLib.events.getAll !== 'function') {
+          console.error('Events object or getAll function not found');
+          setError('Events service not available');
+          return;
+        }
+        
+        const { data, error } = await supabaseLib.events.getAll();
+        if (error) {
+          console.error('Error loading events:', error);
+          setError('Failed to load events');
+          return;
+        }
+        setEvents(data || []);
+      } catch (err) {
+        console.error('Exception loading events:', err);
+        setError('Failed to load events');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      loadEvents();
+    }
+  }, [user]);
 
   const handleTabChange = (event, newValue) => {
     setCurrentTab(newValue);
   };
 
-  const handleJoinEvent = (eventId) => {
-    if (joinedEvents.includes(eventId)) {
-      setJoinedEvents(joinedEvents.filter(id => id !== eventId));
-    } else {
-      setJoinedEvents([...joinedEvents, eventId]);
+  const handleJoinEvent = async (eventId) => {
+    try {
+      const { data, error } = await supabaseLib.events.toggleAttendance(eventId);
+      if (error) {
+        console.error('Error toggling attendance:', error);
+        return;
+      }
+      
+      // Update local state
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId 
+            ? { 
+                ...event, 
+                isAttending: data.action === 'created' || data.action === 'updated',
+                attendingCount: data.action === 'created' || data.action === 'updated' 
+                  ? event.attendingCount + 1 
+                  : event.attendingCount - 1,
+                spotsLeft: data.action === 'created' || data.action === 'updated'
+                  ? event.spotsLeft - 1
+                  : event.spotsLeft + 1
+              }
+            : event
+        )
+      );
+    } catch (err) {
+      console.error('Exception toggling attendance:', err);
     }
   };
 
-  const handleLikeEvent = (eventId) => {
-    if (likedEvents.includes(eventId)) {
-      setLikedEvents(likedEvents.filter(id => id !== eventId));
-    } else {
-      setLikedEvents([...likedEvents, eventId]);
+  const handleLikeEvent = async (eventId) => {
+    try {
+      const { data, error } = await supabaseLib.events.toggleLike(eventId);
+      if (error) {
+        console.error('Error toggling like:', error);
+        return;
+      }
+      
+      // Update local state
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId 
+            ? { 
+                ...event, 
+                isLiked: data.action === 'liked',
+                likesCount: data.action === 'liked' 
+                  ? event.likesCount + 1 
+                  : event.likesCount - 1
+              }
+            : event
+        )
+      );
+    } catch (err) {
+      console.error('Exception toggling like:', err);
     }
   };
 
@@ -181,9 +153,23 @@ const EventsPage = () => {
     : events.filter(event => event.category === categories[currentTab]);
 
   const EventCard = ({ event }) => {
-    const isJoined = joinedEvents.includes(event.id);
-    const isLiked = likedEvents.includes(event.id);
-    const spotsLeft = event.capacity - event.attendees;
+    const isJoined = event.isAttending;
+    const isLiked = event.isLiked;
+    const spotsLeft = event.spotsLeft;
+    const attendees = event.attendingCount;
+    
+    // Format date and time
+    const eventDate = new Date(event.starts_at);
+    const dateStr = eventDate.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      month: 'short', 
+      day: 'numeric' 
+    });
+    const timeStr = eventDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
 
     return (
       <Card
@@ -358,21 +344,21 @@ const EventsPage = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Schedule sx={{ fontSize: 16, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary" noWrap>
-                {event.date} at {event.time}
+                {dateStr} at {timeStr}
               </Typography>
             </Box>
             
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary" noWrap>
-                {event.location}
+                {event.location_name}
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AttachMoney sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <People sx={{ fontSize: 16, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary">
-                {event.price}
+                {attendees} attending
               </Typography>
             </Box>
           </Box>
@@ -387,13 +373,8 @@ const EventsPage = () => {
             flexShrink: 0,
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 24, height: 24 } }}>
-                {event.attendeePhotos.map((photo, index) => (
-                  <Avatar key={index} src={photo} sx={{ border: '1px solid white' }} />
-                ))}
-              </AvatarGroup>
               <Typography variant="body2" color="text.secondary">
-                {event.attendees} going
+                {attendees} going
               </Typography>
             </Box>
             
@@ -497,42 +478,60 @@ const EventsPage = () => {
         </Paper>
 
         {/* Events Grid */}
-        <Box
-          sx={{
-            display: 'grid',
-            gap: 3,
-            gridTemplateColumns: {
-              xs: '1fr', // 1 column on mobile
-              sm: 'repeat(2, 1fr)', // 2 columns on tablet
-              md: 'repeat(3, 1fr)', // 3 columns on desktop and above
-              xl: 'repeat(4, 1fr)', // 4 columns on extra large screens
-            },
-            // Force equal column widths with CSS Grid
-            '& > *': {
-              minWidth: 0, // Prevent grid blowout
-              width: '100%', // Force full width
-            },
-            // Additional CSS override for screens wider than 768px
-            '@media (min-width: 768px)': {
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              '& > *': {
-                width: '100% !important',
-                maxWidth: '100% !important',
-                flex: 'none !important',
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+            <Typography variant="h6" color="error">
+              {error}
+            </Typography>
+          </Box>
+        ) : filteredEvents.length === 0 ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+            <Typography variant="h6" color="text.secondary">
+              No events found
+            </Typography>
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 3,
+              gridTemplateColumns: {
+                xs: '1fr', // 1 column on mobile
+                sm: 'repeat(2, 1fr)', // 2 columns on tablet
+                md: 'repeat(3, 1fr)', // 3 columns on desktop and above
+                xl: 'repeat(4, 1fr)', // 4 columns on extra large screens
               },
-            },
-            // Extra large screens
-            '@media (min-width: 1536px)': {
-              gridTemplateColumns: 'repeat(4, 1fr)',
-            },
-          }}
-        >
-          {filteredEvents.map((event) => (
-            <Box key={event.id} sx={{ width: '100%' }}>
-              <EventCard event={event} />
-            </Box>
-          ))}
-        </Box>
+              // Force equal column widths with CSS Grid
+              '& > *': {
+                minWidth: 0, // Prevent grid blowout
+                width: '100%', // Force full width
+              },
+              // Additional CSS override for screens wider than 768px
+              '@media (min-width: 768px)': {
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                '& > *': {
+                  width: '100% !important',
+                  maxWidth: '100% !important',
+                  flex: 'none !important',
+                },
+              },
+              // Extra large screens
+              '@media (min-width: 1536px)': {
+                gridTemplateColumns: 'repeat(4, 1fr)',
+              },
+            }}
+          >
+            {filteredEvents.map((event) => (
+              <Box key={event.id} sx={{ width: '100%' }}>
+                <EventCard event={event} />
+              </Box>
+            ))}
+          </Box>
+        )}
 
         {/* Event Details Modal */}
         <Dialog
@@ -583,7 +582,7 @@ const EventsPage = () => {
                 </Typography>
                 
                 <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                  Hosted by {selectedEvent.host}
+                  Hosted by OneDate Events
                 </Typography>
 
                 <Typography variant="body1" color="text.primary" sx={{ mb: 3, lineHeight: 1.6 }}>
@@ -597,10 +596,18 @@ const EventsPage = () => {
                         <CalendarToday sx={{ color: 'text.secondary' }} />
                         <Box>
                           <Typography variant="body2" fontWeight="600" color="text.primary">
-                            {selectedEvent.date}
+                            {new Date(selectedEvent.starts_at).toLocaleDateString('en-US', { 
+                              weekday: 'long',
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {selectedEvent.time}
+                            {new Date(selectedEvent.starts_at).toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit',
+                              hour12: true 
+                            })}
                           </Typography>
                         </Box>
                       </Box>
@@ -609,10 +616,7 @@ const EventsPage = () => {
                         <LocationOn sx={{ color: 'text.secondary' }} />
                         <Box>
                           <Typography variant="body2" fontWeight="600" color="text.primary">
-                            {selectedEvent.location}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {selectedEvent.address}
+                            {selectedEvent.location_name}
                           </Typography>
                         </Box>
                       </Box>
@@ -622,16 +626,15 @@ const EventsPage = () => {
                   <Grid item xs={12} sm={6}>
                     <Stack spacing={2}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <AttachMoney sx={{ color: 'text.secondary' }} />
+                        <People sx={{ color: 'text.secondary' }} />
                         <Typography variant="body2" fontWeight="600" color="text.primary">
-                          {selectedEvent.price}
+                          {selectedEvent.attendingCount}/{selectedEvent.max_participants} attendees
                         </Typography>
                       </Box>
                       
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <People sx={{ color: 'text.secondary' }} />
                         <Typography variant="body2" fontWeight="600" color="text.primary">
-                          {selectedEvent.attendees}/{selectedEvent.capacity} attendees
+                          {selectedEvent.spotsLeft} spots left
                         </Typography>
                       </Box>
                     </Stack>
@@ -641,13 +644,8 @@ const EventsPage = () => {
                 <Divider sx={{ my: 2 }} />
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <AvatarGroup max={6}>
-                    {selectedEvent.attendeePhotos.map((photo, index) => (
-                      <Avatar key={index} src={photo} />
-                    ))}
-                  </AvatarGroup>
                   <Typography variant="body2" color="text.secondary">
-                    and {selectedEvent.attendees - selectedEvent.attendeePhotos.length} others are going
+                    {selectedEvent.attendingCount} people are attending this event
                   </Typography>
                 </Box>
               </DialogContent>
@@ -669,7 +667,7 @@ const EventsPage = () => {
                   size="large"
                   sx={{ px: 4 }}
                 >
-                  {joinedEvents.includes(selectedEvent.id) ? 'Leave Event' : 'Join Event'}
+                  {selectedEvent.isAttending ? 'Leave Event' : 'Join Event'}
                 </Button>
               </DialogActions>
             </>

@@ -1,8 +1,9 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
+import { supabase, auth } from './lib/supabase';
 
 // Import components
 import LoginPage from './components/Auth/LoginPage';
@@ -13,6 +14,7 @@ import EventsPage from './components/Events/EventsPage';
 import ProfilePage from './components/Profile/ProfilePage';
 import ChatsPage from './components/Chat/ChatsPage';
 import Navbar from './components/Navigation/Navbar';
+import SeedPage from './components/Admin/SeedPage';
 
 // Auth Context
 const AuthContext = createContext();
@@ -428,23 +430,98 @@ const theme = createTheme({
 function App() {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const login = (userData) => {
-    setUser(userData);
-    setIsAuthenticated(true);
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUser(user);
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.error('Error checking user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          setIsAuthenticated(true);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email, password) => {
+    try {
+      const { data, error } = await auth.signIn(email, password);
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
+  const signup = async (email, password, userData = {}) => {
+    try {
+      const { data, error } = await auth.signUp(email, password, userData);
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  const logout = async () => {
+    try {
+      const { error } = await auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   const value = {
     user,
     isAuthenticated,
     login,
+    signup,
     logout,
   };
+
+  if (loading) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '100vh',
+            backgroundColor: 'background.default',
+          }}
+        >
+          <div>Loading...</div>
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -488,6 +565,10 @@ function App() {
                   <Route 
                     path="/chats" 
                     element={isAuthenticated ? <ChatsPage /> : <Navigate to="/login" />} 
+                  />
+                  <Route 
+                    path="/seed" 
+                    element={<SeedPage />} 
                   />
                   <Route 
                     path="/" 

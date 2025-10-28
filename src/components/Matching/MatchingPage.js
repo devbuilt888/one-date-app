@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Container,
   Box,
@@ -29,73 +29,61 @@ import {
   MoreHoriz,
 } from '@mui/icons-material';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { useAuth } from '../../App';
+import { supabase, matching } from '../../lib/supabase';
 
 const MatchingPage = () => {
-  // Mock profiles data
-  const [profiles] = useState([
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      age: 26,
-      bio: 'Passionate about sustainable living and outdoor adventures. Always looking for the next hiking trail to explore! 🌲✨',
-      location: 'New York, NY',
-      work: 'Environmental Consultant',
-      education: 'Columbia University',
-      interests: ['Hiking', 'Sustainability', 'Photography', 'Yoga'],
-      photos: ['/images/users/sarahJohnson.jpeg', '/images/users/sarahJohnson.jpeg', '/images/users/sarahJohnson.jpeg'],
-      distance: '2 miles away',
-      verified: true,
-      compatibility: 95,
-    },
-    {
-      id: 2,
-      name: 'Emma Wilson',
-      age: 24,
-      bio: 'Software engineer by day, chef by night. Love creating new recipes and exploring the city\'s food scene! 👩‍💻🍳',
-      location: 'Brooklyn, NY',
-      work: 'Software Engineer',
-      education: 'MIT',
-      interests: ['Coding', 'Cooking', 'Food Tours', 'Board Games'],
-      photos: ['/images/users/emmaWilson.jpeg', '/images/users/emmaWilson.jpeg'],
-      distance: '5 miles away',
-      verified: true,
-      compatibility: 88,
-    },
-    {
-      id: 3,
-      name: 'Olivia Brown',
-      age: 28,
-      bio: 'Creative director with a passion for visual storytelling. Weekend gallery hopper and coffee connoisseur! 🎨☕',
-      location: 'Manhattan, NY',
-      work: 'Creative Director',
-      education: 'Parsons School of Design',
-      interests: ['Design', 'Art', 'Coffee', 'Museums'],
-      photos: ['/images/users/oliviaBrown.jpeg', '/images/users/oliviaBrown.jpeg', '/images/users/oliviaBrown.jpeg'],
-      distance: '3 miles away',
-      verified: false,
-      compatibility: 92,
-    },
-    {
-      id: 4,
-      name: 'Ava Davis',
-      age: 25,
-      bio: 'Fitness enthusiast and wellness coach. Helping others achieve their health goals while exploring new workout trends! 💪🌱',
-      location: 'Queens, NY',
-      work: 'Wellness Coach',
-      education: 'NYU',
-      interests: ['Fitness', 'Nutrition', 'Meditation', 'Rock Climbing'],
-      photos: ['/images/users/avaDavis.jpeg', '/images/users/avaDavis.jpeg'],
-      distance: '7 miles away',
-      verified: true,
-      compatibility: 89,
-    },
-  ]);
+  const { user } = useAuth();
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [matches, setMatches] = useState([]);
   const [showMatch, setShowMatch] = useState(false);
+  const [matchedUser, setMatchedUser] = useState(null);
 
-  const currentProfile = profiles[currentIndex];
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .neq('id', user?.id)
+          .limit(50);
+
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('Error fetching profiles:', error);
+          setProfiles([]);
+          return;
+        }
+
+        const mapped = (data || []).map((p) => ({
+          id: p.id,
+          name: p.display_name || 'Unknown',
+          age: p.age || 'N/A',
+          bio: p.bio || '',
+          location: p.location || '',
+          work: p.work || '',
+          education: p.education || '',
+          interests: Array.isArray(p.interests) ? p.interests : [],
+          photos: Array.isArray(p.photo_urls) && p.photo_urls.length > 0 ? p.photo_urls : ['/images/users/default-avatar.png'],
+          distance: 'nearby',
+          verified: true,
+          compatibility: 90,
+        }));
+
+        setProfiles(mapped);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfiles();
+  }, [user?.id]);
+
+  const currentProfile = useMemo(() => profiles[currentIndex], [profiles, currentIndex]);
 
   const CardComponent = ({ profile, index, onSwipe }) => {
     const x = useMotionValue(0);
@@ -370,11 +358,28 @@ const MatchingPage = () => {
     );
   };
 
-  const handleSwipe = (action) => {
-    if (action === 'like') {
-      setMatches([...matches, currentProfile]);
-      setShowMatch(true);
-      setTimeout(() => setShowMatch(false), 2000);
+  const handleSwipe = async (action) => {
+    if (action === 'like' && currentProfile) {
+      try {
+        const { data, error } = await matching.likeUser(currentProfile.id);
+        if (error) {
+          console.error('Error liking user:', error);
+          return;
+        }
+        
+        if (data?.matched) {
+          setMatches([...matches, currentProfile]);
+          setMatchedUser(currentProfile); // Store the matched user before updating index
+          setShowMatch(true);
+          setTimeout(() => {
+            setShowMatch(false);
+            setMatchedUser(null); // Clear matched user after notification
+          }, 1500);
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Error liking user:', e);
+      }
     }
     
     if (currentIndex < profiles.length - 1) {
@@ -388,8 +393,20 @@ const MatchingPage = () => {
     handleSwipe(action);
   };
 
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Typography variant="body1" color="text.secondary">Loading profiles...</Typography>
+      </Box>
+    );
+  }
+
   if (!currentProfile) {
-    return null;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Typography variant="body1" color="text.secondary">No profiles to show. Try again later.</Typography>
+      </Box>
+    );
   }
 
   return (
@@ -569,14 +586,18 @@ const MatchingPage = () => {
                 backgroundColor: 'success.main',
                 color: 'white',
                 borderRadius: 3,
+                maxWidth: 300,
               }}
             >
               <AutoAwesome sx={{ fontSize: 48, mb: 2 }} />
               <Typography variant="h4" fontWeight="700" sx={{ mb: 1 }}>
                 It's a Match!
               </Typography>
-              <Typography variant="body1">
-                You and {currentProfile.name} liked each other
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                You and {matchedUser?.name || 'someone'} liked each other
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Start chatting now!
               </Typography>
             </Paper>
           </motion.div>

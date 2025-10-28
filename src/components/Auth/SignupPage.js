@@ -37,7 +37,7 @@ const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const steps = ['Account Info', 'Personal Details', 'About You'];
@@ -81,21 +81,27 @@ const SignupPage = () => {
       return;
     }
 
-    // Mock user data
-    const userData = {
-      id: '1',
-      name: formData.name,
-      email: formData.email,
-      age: formData.age,
-      bio: 'New to OneDate!',
-      photos: ['/images/users/sarahJohnson.jpeg']
-    };
-    
-    setTimeout(() => {
-      login(userData);
-      navigate('/dashboard');
+    try {
+      const userData = {
+        display_name: formData.name,
+        age: parseInt(formData.age),
+        gender: formData.gender,
+        preferences_gender: [formData.interestedIn],
+        bio: formData.bio,
+        location: formData.location
+      };
+
+      const result = await signup(formData.email, formData.password, userData);
+      if (result.success) {
+        navigate('/dashboard');
+      } else {
+        setError(result.error || 'Signup failed');
+      }
+    } catch (error) {
+      setError('An unexpected error occurred');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const renderStepContent = (step) => {
