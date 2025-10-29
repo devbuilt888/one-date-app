@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Container,
   Grid,
@@ -27,6 +27,16 @@ const ChatsPage = () => {
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
     const loadConversations = async () => {
@@ -71,31 +81,39 @@ const ChatsPage = () => {
 
   const handleSendMessage = async () => {
     if (newMessage.trim() && selectedChat) {
+      const messageText = newMessage.trim();
+      setNewMessage(''); // Clear input immediately for better UX
+      
       try {
-        const { data, error } = await chat.sendMessage(selectedChat.id, newMessage);
+        const { data, error } = await chat.sendMessage(selectedChat.id, messageText);
         if (error) {
           console.error('Error sending message:', error);
+          setNewMessage(messageText); // Restore message if sending failed
           return;
         }
         
-        // Add the new message to the current chat
-        const updatedChat = {
-          ...selectedChat,
-          messages: [
-            ...selectedChat.messages,
-            {
-              id: data[0].id,
-              sender: 'You',
-              message: newMessage,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              isMine: true,
-            }
-          ]
+        // Add the new message to the messages state immediately for better UX
+        const newMessageObj = {
+          id: data[0].id,
+          sender: 'You',
+          message: messageText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isMine: true,
         };
-        setSelectedChat(updatedChat);
-        setNewMessage('');
+        
+        setMessages(prev => {
+          // Check if message already exists to avoid duplicates
+          const exists = prev.some(msg => msg.id === data[0].id);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, newMessageObj];
+        });
+        
+        console.log('Message sent successfully:', data[0]);
       } catch (e) {
         console.error('Error sending message:', e);
+        setNewMessage(messageText); // Restore message if sending failed
       }
     }
   };
@@ -139,21 +157,46 @@ const ChatsPage = () => {
   useEffect(() => {
     if (!selectedChat) return;
     
+    console.log('Setting up real-time subscription for conversation:', selectedChat.id);
+    
     const subscription = chat.subscribeToMessages(selectedChat.id, (payload) => {
-      if (payload.eventType === 'INSERT') {
+      console.log('Received real-time message:', payload);
+      
+      // Check if this is an INSERT event (new message)
+      if (payload.eventType === 'INSERT' && payload.new) {
         const newMessage = payload.new;
-        const transformedMessage = {
-          id: newMessage.id,
-          sender: newMessage.sender_id === user?.id ? 'You' : selectedChat.otherUser?.display_name || 'Other User',
-          message: newMessage.text,
-          timestamp: new Date(newMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isMine: newMessage.sender_id === user?.id,
-        };
-        setMessages(prev => [...prev, transformedMessage]);
+        
+        // Only add the message if it's not from the current user (to avoid duplicates)
+        // The current user's messages are already added when they send them
+        if (newMessage.sender_id !== user?.id) {
+          console.log('Adding new message from other user:', newMessage);
+          
+          const transformedMessage = {
+            id: newMessage.id,
+            sender: selectedChat.otherUser?.display_name || 'Other User',
+            message: newMessage.text,
+            timestamp: new Date(newMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isMine: false,
+          };
+          
+          setMessages(prev => {
+            // Check if message already exists to avoid duplicates
+            const exists = prev.some(msg => msg.id === newMessage.id);
+            if (exists) {
+              console.log('Message already exists, skipping duplicate');
+              return prev;
+            }
+            console.log('Adding new message to state');
+            return [...prev, transformedMessage];
+          });
+        } else {
+          console.log('Message from current user, skipping (already added)');
+        }
       }
     });
     
     return () => {
+      console.log('Cleaning up subscription for conversation:', selectedChat.id);
       subscription.unsubscribe();
     };
   }, [selectedChat, user?.id]);
@@ -311,39 +354,42 @@ const ChatsPage = () => {
                       <Typography variant="body2" color="text.secondary">Loading messages...</Typography>
                     </Box>
                   ) : (
-                    messages.map((message) => (
-                    <Box
-                      key={message.id}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: message.isMine ? 'flex-end' : 'flex-start',
-                        mb: 2,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          maxWidth: '70%',
-                          p: 2,
-                          borderRadius: 3,
-                          backgroundColor: message.isMine ? '#ff6b6b' : '#f5f5f5',
-                          color: message.isMine ? 'white' : 'black',
-                        }}
-                      >
-                        <Typography variant="body1">{message.message}</Typography>
-                        <Typography
-                          variant="caption"
+                    <>
+                      {messages.map((message) => (
+                        <Box
+                          key={message.id}
                           sx={{
-                            display: 'block',
-                            mt: 0.5,
-                            opacity: 0.8,
-                            textAlign: 'right',
+                            display: 'flex',
+                            justifyContent: message.isMine ? 'flex-end' : 'flex-start',
+                            mb: 2,
                           }}
                         >
-                          {message.timestamp}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    ))
+                          <Box
+                            sx={{
+                              maxWidth: '70%',
+                              p: 2,
+                              borderRadius: 3,
+                              backgroundColor: message.isMine ? '#ff6b6b' : '#f5f5f5',
+                              color: message.isMine ? 'white' : 'black',
+                            }}
+                          >
+                            <Typography variant="body1">{message.message}</Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                display: 'block',
+                                mt: 0.5,
+                                opacity: 0.8,
+                                textAlign: 'right',
+                              }}
+                            >
+                              {message.timestamp}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </>
                   )}
                 </Box>
 
