@@ -469,7 +469,7 @@ function App() {
 
   const login = async (email, password) => {
     try {
-      const { data, error } = await auth.signIn(email, password);
+      const { error } = await auth.signIn(email, password);
       if (error) throw error;
       return { success: true };
     } catch (error) {
@@ -479,7 +479,7 @@ function App() {
 
   const signup = async (email, password, userData = {}) => {
     try {
-      const { data, error } = await auth.signUp(email, password, userData);
+      const { error } = await auth.signUp(email, password, userData);
       if (error) throw error;
       return { success: true };
     } catch (error) {

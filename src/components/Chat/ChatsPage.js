@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Container,
   Grid,
@@ -13,7 +13,6 @@ import {
   TextField,
   IconButton,
   Badge,
-  Divider,
   InputAdornment,
 } from '@mui/material';
 import { Send, Search, MoreVert, Favorite, PhotoCamera, AttachFile } from '@mui/icons-material';

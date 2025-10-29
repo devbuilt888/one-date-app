@@ -1,13 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_CONFIG } from '../config/supabase'
 
-// Use environment variables - no hardcoded fallbacks
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
+// Use environment variables with fallbacks for deployment testing
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://etxohseimtmngwkfioiu.supabase.co'
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0eG9oc2VpbXRtbmd3a2Zpb2l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1MDE1MjcsImV4cCI6MjA3NjA3NzUyN30.ZpSPQ23Ip9oP6nPxa5XoPcUWwCQE8EPtbJ8DE8TndhA'
 
-// Validate that environment variables are set
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing required environment variables: REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY must be set')
+// Validate that environment variables are set (only warn, don't fail)
+if (!process.env.REACT_APP_SUPABASE_URL || !process.env.REACT_APP_SUPABASE_ANON_KEY) {
+  console.warn('⚠️ Using fallback Supabase configuration. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY environment variables for production.')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
