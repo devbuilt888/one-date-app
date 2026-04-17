@@ -33,6 +33,8 @@ import { useAuth } from '../../App';
 import { supabase, matching } from '../../lib/supabase';
 
 const MatchingPage = () => {
+  const SWIPE_LIMIT = 30;
+  const SWIPE_RESET_MS = 24 * 60 * 60 * 1000;
   const { user } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,82 @@ const MatchingPage = () => {
   const [matches, setMatches] = useState([]);
   const [showMatch, setShowMatch] = useState(false);
   const [matchedUser, setMatchedUser] = useState(null);
+  const [remainingSwipes, setRemainingSwipes] = useState(SWIPE_LIMIT);
+  const [swipesResetAt, setSwipesResetAt] = useState(Date.now() + SWIPE_RESET_MS);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const swipeStorageKey = `onedate:swipes:${user.id}`;
+    const now = Date.now();
+    const savedSwipesRaw = localStorage.getItem(swipeStorageKey);
+
+    if (!savedSwipesRaw) {
+      const initial = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
+      localStorage.setItem(swipeStorageKey, JSON.stringify(initial));
+      setRemainingSwipes(initial.remaining);
+      setSwipesResetAt(initial.resetAt);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedSwipesRaw);
+      if (!parsed || typeof parsed.remaining !== 'number' || typeof parsed.resetAt !== 'number') {
+        throw new Error('Invalid swipe storage format');
+      }
+
+      if (now >= parsed.resetAt) {
+        const reset = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
+        localStorage.setItem(swipeStorageKey, JSON.stringify(reset));
+        setRemainingSwipes(reset.remaining);
+        setSwipesResetAt(reset.resetAt);
+        return;
+      }
+
+      setRemainingSwipes(parsed.remaining);
+      setSwipesResetAt(parsed.resetAt);
+    } catch {
+      const fallback = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
+      localStorage.setItem(swipeStorageKey, JSON.stringify(fallback));
+      setRemainingSwipes(fallback.remaining);
+      setSwipesResetAt(fallback.resetAt);
+    }
+  }, [user?.id, SWIPE_LIMIT, SWIPE_RESET_MS]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const swipeStorageKey = `onedate:swipes:${user.id}`;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      if (now < swipesResetAt) return;
+
+      const reset = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
+      localStorage.setItem(swipeStorageKey, JSON.stringify(reset));
+      setRemainingSwipes(reset.remaining);
+      setSwipesResetAt(reset.resetAt);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [user?.id, swipesResetAt, SWIPE_LIMIT, SWIPE_RESET_MS]);
+
+  const persistSwipeState = (remaining, resetAt) => {
+    if (!user?.id) return;
+    const swipeStorageKey = `onedate:swipes:${user.id}`;
+    localStorage.setItem(swipeStorageKey, JSON.stringify({ remaining, resetAt }));
+  };
+
+  const canSwipe = remainingSwipes > 0;
+
+  const formatMsToClock = (milliseconds) => {
+    const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+  };
+
+  const timeUntilSwipeReset = formatMsToClock(swipesResetAt - Date.now());
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -85,7 +163,7 @@ const MatchingPage = () => {
 
   const currentProfile = useMemo(() => profiles[currentIndex], [profiles, currentIndex]);
 
-  const CardComponent = ({ profile, index, onSwipe }) => {
+  const CardComponent = ({ profile, index, onSwipe, canSwipeNow }) => {
     const x = useMotionValue(0);
     const y = useMotionValue(0);
     const rotate = useTransform(x, [-300, 300], [-15, 15]);
@@ -111,12 +189,12 @@ const MatchingPage = () => {
           position: 'absolute',
           width: '100%',
           height: '100%',
-          cursor: 'grab',
+          cursor: canSwipeNow ? 'grab' : 'not-allowed',
         }}
-        drag
+        drag={canSwipeNow}
         dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
         onDragEnd={handleDragEnd}
-        whileDrag={{ cursor: 'grabbing', scale: 1.02 }}
+        whileDrag={canSwipeNow ? { cursor: 'grabbing', scale: 1.02 } : {}}
         animate={{ scale: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
@@ -359,6 +437,12 @@ const MatchingPage = () => {
   };
 
   const handleSwipe = async (action) => {
+    if (!canSwipe) return;
+
+    const nextSwipes = Math.max(0, remainingSwipes - 1);
+    setRemainingSwipes(nextSwipes);
+    persistSwipeState(nextSwipes, swipesResetAt);
+
     if (action === 'like' && currentProfile) {
       try {
         const { data, error } = await matching.likeUser(currentProfile.id);
@@ -430,6 +514,10 @@ const MatchingPage = () => {
           <Typography variant="body1" color="text.secondary">
             Find your perfect match
           </Typography>
+          <Typography variant="body2" color={canSwipe ? 'text.secondary' : 'warning.main'} sx={{ mt: 1 }}>
+            Swipes left: {remainingSwipes}
+            {!canSwipe && ` - resets in ${timeUntilSwipeReset}`}
+          </Typography>
         </Paper>
 
         {/* Card Stack Container */}
@@ -461,6 +549,7 @@ const MatchingPage = () => {
                     profile={profile}
                     index={currentIndex + index}
                     onSwipe={handleSwipe}
+                    canSwipeNow={canSwipe}
                   />
                 ) : (
                   <Card
@@ -504,6 +593,7 @@ const MatchingPage = () => {
           <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
             <IconButton
               onClick={() => handleButtonAction('pass')}
+              disabled={!canSwipe}
               sx={{
                 width: 56,
                 height: 56,
@@ -544,6 +634,7 @@ const MatchingPage = () => {
 
             <IconButton
               onClick={() => handleButtonAction('like')}
+              disabled={!canSwipe}
               sx={{
                 width: 56,
                 height: 56,

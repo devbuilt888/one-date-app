@@ -15,6 +15,9 @@ import ProfilePage from './components/Profile/ProfilePage';
 import ChatsPage from './components/Chat/ChatsPage';
 import Navbar from './components/Navigation/Navbar';
 import SeedPage from './components/Admin/SeedPage';
+import InitialPreferencesQuiz from './components/Quiz/InitialPreferencesQuiz';
+import QuizPage from './components/Quiz/QuizPage';
+import { hasCompletedPreferencesQuiz } from './lib/preferencesQuiz';
 
 // Auth Context
 const AuthContext = createContext();
@@ -430,6 +433,7 @@ const theme = createTheme({
 function App() {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasCompletedOnboardingQuiz, setHasCompletedOnboardingQuiz] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -440,6 +444,9 @@ function App() {
         if (user) {
           setUser(user);
           setIsAuthenticated(true);
+          setHasCompletedOnboardingQuiz(hasCompletedPreferencesQuiz(user.id));
+        } else {
+          setHasCompletedOnboardingQuiz(false);
         }
       } catch (error) {
         console.error('Error checking user:', error);
@@ -456,9 +463,11 @@ function App() {
         if (session?.user) {
           setUser(session.user);
           setIsAuthenticated(true);
+          setHasCompletedOnboardingQuiz(hasCompletedPreferencesQuiz(session.user.id));
         } else {
           setUser(null);
           setIsAuthenticated(false);
+          setHasCompletedOnboardingQuiz(false);
         }
         setLoading(false);
       }
@@ -548,23 +557,101 @@ function App() {
                   />
                   <Route 
                     path="/dashboard" 
-                    element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <Dashboard />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    } 
                   />
                   <Route 
                     path="/matching" 
-                    element={isAuthenticated ? <MatchingPage /> : <Navigate to="/login" />} 
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <MatchingPage />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    } 
                   />
                   <Route 
                     path="/events" 
-                    element={isAuthenticated ? <EventsPage /> : <Navigate to="/login" />} 
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <EventsPage />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    } 
                   />
                   <Route 
                     path="/profile" 
-                    element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" />} 
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <ProfilePage />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    } 
                   />
                   <Route 
                     path="/chats" 
-                    element={isAuthenticated ? <ChatsPage /> : <Navigate to="/login" />} 
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <ChatsPage />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    } 
+                  />
+                  <Route
+                    path="/quizzes/:quizId"
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <QuizPage />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/onboarding/preferences"
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <Navigate to="/dashboard" />
+                        ) : (
+                          <InitialPreferencesQuiz onCompleted={() => setHasCompletedOnboardingQuiz(true)} />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    }
                   />
                   <Route 
                     path="/seed" 
@@ -572,7 +659,17 @@ function App() {
                   />
                   <Route 
                     path="/" 
-                    element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} 
+                    element={
+                      <Navigate
+                        to={
+                          isAuthenticated
+                            ? hasCompletedOnboardingQuiz
+                              ? '/dashboard'
+                              : '/onboarding/preferences'
+                            : '/login'
+                        }
+                      />
+                    } 
                   />
                 </Routes>
               </Box>
