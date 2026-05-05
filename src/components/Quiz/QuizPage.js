@@ -4,6 +4,7 @@ import { Container, Box, Typography, Chip, Stack } from '@mui/material';
 import { useAuth } from '../../App';
 import ReusableQuiz from './ReusableQuiz';
 import { getQuizDefinition, saveQuizResult, readQuizResult } from '../../lib/quizzes';
+import { incrementSwipes } from '../../lib/swipes';
 
 const QuizPage = () => {
   const { quizId } = useParams();
@@ -22,7 +23,12 @@ const QuizPage = () => {
 
   const handleComplete = async (answers) => {
     saveQuizResult(user?.id, quiz.id, answers);
-    navigate('/dashboard', { replace: true });
+    let bonusState;
+    if (user?.id) {
+      const { remaining } = incrementSwipes(user.id, 1);
+      bonusState = { swipeBonus: true, swipeRemaining: remaining };
+    }
+    navigate('/dashboard', { replace: true, state: bonusState });
   };
 
   return (

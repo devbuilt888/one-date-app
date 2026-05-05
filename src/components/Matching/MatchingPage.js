@@ -31,10 +31,9 @@ import {
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { useAuth } from '../../App';
 import { supabase, matching } from '../../lib/supabase';
+import { SWIPE_LIMIT, SWIPE_RESET_MS, readOrInitializeSwipeState, writeSwipeState } from '../../lib/swipes';
 
 const MatchingPage = () => {
-  const SWIPE_LIMIT = 30;
-  const SWIPE_RESET_MS = 24 * 60 * 60 * 1000;
   const { user } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,64 +47,30 @@ const MatchingPage = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-
-    const swipeStorageKey = `onedate:swipes:${user.id}`;
-    const now = Date.now();
-    const savedSwipesRaw = localStorage.getItem(swipeStorageKey);
-
-    if (!savedSwipesRaw) {
-      const initial = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
-      localStorage.setItem(swipeStorageKey, JSON.stringify(initial));
-      setRemainingSwipes(initial.remaining);
-      setSwipesResetAt(initial.resetAt);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(savedSwipesRaw);
-      if (!parsed || typeof parsed.remaining !== 'number' || typeof parsed.resetAt !== 'number') {
-        throw new Error('Invalid swipe storage format');
-      }
-
-      if (now >= parsed.resetAt) {
-        const reset = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
-        localStorage.setItem(swipeStorageKey, JSON.stringify(reset));
-        setRemainingSwipes(reset.remaining);
-        setSwipesResetAt(reset.resetAt);
-        return;
-      }
-
-      setRemainingSwipes(parsed.remaining);
-      setSwipesResetAt(parsed.resetAt);
-    } catch {
-      const fallback = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
-      localStorage.setItem(swipeStorageKey, JSON.stringify(fallback));
-      setRemainingSwipes(fallback.remaining);
-      setSwipesResetAt(fallback.resetAt);
-    }
-  }, [user?.id, SWIPE_LIMIT, SWIPE_RESET_MS]);
+    const { remaining, resetAt } = readOrInitializeSwipeState(user.id);
+    setRemainingSwipes(remaining);
+    setSwipesResetAt(resetAt);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
 
-    const swipeStorageKey = `onedate:swipes:${user.id}`;
     const timer = setInterval(() => {
       const now = Date.now();
       if (now < swipesResetAt) return;
 
       const reset = { remaining: SWIPE_LIMIT, resetAt: now + SWIPE_RESET_MS };
-      localStorage.setItem(swipeStorageKey, JSON.stringify(reset));
+      writeSwipeState(user.id, reset.remaining, reset.resetAt);
       setRemainingSwipes(reset.remaining);
       setSwipesResetAt(reset.resetAt);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [user?.id, swipesResetAt, SWIPE_LIMIT, SWIPE_RESET_MS]);
+  }, [user?.id, swipesResetAt]);
 
   const persistSwipeState = (remaining, resetAt) => {
     if (!user?.id) return;
-    const swipeStorageKey = `onedate:swipes:${user.id}`;
-    localStorage.setItem(swipeStorageKey, JSON.stringify({ remaining, resetAt }));
+    writeSwipeState(user.id, remaining, resetAt);
   };
 
   const canSwipe = remainingSwipes > 0;

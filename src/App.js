@@ -17,6 +17,8 @@ import Navbar from './components/Navigation/Navbar';
 import SeedPage from './components/Admin/SeedPage';
 import InitialPreferencesQuiz from './components/Quiz/InitialPreferencesQuiz';
 import QuizPage from './components/Quiz/QuizPage';
+import LandingPage from './components/Landing/LandingPage';
+import PersonalEventApplyPage from './components/PersonalEvents/PersonalEventApplyPage';
 import { hasCompletedPreferencesQuiz } from './lib/preferencesQuiz';
 
 // Auth Context
@@ -547,6 +549,7 @@ function App() {
               {isAuthenticated && <Navbar />}
               <Box sx={{ flex: 1 }}>
                 <Routes>
+                  <Route path="/landing" element={<LandingPage />} />
                   <Route 
                     path="/login" 
                     element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} 
@@ -582,6 +585,20 @@ function App() {
                         <Navigate to="/login" />
                       )
                     } 
+                  />
+                  <Route
+                    path="/personal-events/:eventId/apply"
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <PersonalEventApplyPage />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    }
                   />
                   <Route 
                     path="/events" 

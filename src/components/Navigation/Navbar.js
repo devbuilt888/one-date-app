@@ -31,15 +31,14 @@ const Navbar = () => {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path === '/dashboard') return 0;
-    if (path === '/matching') return 1;
-    if (path === '/events') return 2;
-    if (path === '/chats') return 3;
-    if (path === '/profile') return 4;
-    return 0;
+    if (path === '/events') return 1;
+    if (path === '/chats') return 2;
+    if (path === '/profile') return 3;
+    return false;
   };
 
   const handleNavigationChange = (event, newValue) => {
-    const routes = ['/dashboard', '/matching', '/events', '/chats', '/profile'];
+    const routes = ['/dashboard', '/events', '/chats', '/profile'];
     navigate(routes[newValue]);
   };
 
@@ -190,16 +189,22 @@ const Navbar = () => {
                 color: 'text.primary',
               },
               '&.Mui-selected': {
-                backgroundColor: 'secondary.light',
-                color: 'secondary.main',
+                backgroundColor: 'secondary.main',
+                color: '#ffffff',
                 fontWeight: 600,
                 '& .MuiBottomNavigationAction-label': {
                   fontSize: '0.75rem',
                   fontWeight: 600,
                   marginTop: 4,
+                  color: '#ffffff',
+                  opacity: 1,
                 },
                 '& .MuiSvgIcon-root': {
                   transform: 'scale(1.1)',
+                  color: '#ffffff',
+                },
+                '& .MuiBadge-root .MuiSvgIcon-root': {
+                  color: '#ffffff',
                 },
               },
             },
@@ -210,6 +215,8 @@ const Navbar = () => {
               lineHeight: 1,
               '&.Mui-selected': {
                 fontSize: '0.75rem',
+                color: '#ffffff',
+                opacity: 1,
               },
             },
             '& .MuiSvgIcon-root': {
@@ -221,14 +228,6 @@ const Navbar = () => {
           <BottomNavigationAction
             label="Home"
             icon={<DashboardIcon />}
-          />
-          <BottomNavigationAction
-            label="Discover"
-            icon={
-              <Badge badgeContent={2} color="error" variant="dot">
-                <Favorite />
-              </Badge>
-            }
           />
           <BottomNavigationAction
             label="Events"
