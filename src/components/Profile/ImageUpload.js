@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Typography,
-  Avatar,
   IconButton,
   Alert,
   CircularProgress,
@@ -16,9 +15,7 @@ import {
   CardMedia,
 } from '@mui/material'
 import {
-  Add,
   Delete,
-  CloudUpload,
   PhotoCamera,
 } from '@mui/icons-material'
 import { storage } from '../../lib/supabase'

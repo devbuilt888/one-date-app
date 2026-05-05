@@ -8,17 +8,12 @@ import {
   Button,
   Avatar,
   Grid,
-  Card,
-  CardContent,
   Chip,
-  IconButton,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Divider,
   Stack,
-  Badge,
   Alert,
   CircularProgress,
 } from '@mui/material';
@@ -26,17 +21,13 @@ import {
   Edit,
   Save,
   Cancel,
-  PhotoCamera,
   LocationOn,
   Work,
   School,
-  Cake,
-  Verified,
-  Add,
   Close,
 } from '@mui/icons-material';
 import { useAuth } from '../../App';
-import { supabase, profiles } from '../../lib/supabase';
+import { profiles } from '../../lib/supabase';
 import { getCurrentLocation } from '../../utils/geolocation';
 import ImageUpload from './ImageUpload';
 import CreateProfilePrompt from './CreateProfilePrompt';

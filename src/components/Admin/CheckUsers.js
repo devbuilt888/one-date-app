@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Button, Box, Typography, Alert, List, ListItem, ListItemText, Paper, Divider, Tabs, Tab } from '@mui/material'
 import { supabase } from '../../lib/supabase'
 import MatchDebugger from './MatchDebugger'
@@ -49,7 +49,7 @@ const CheckUsers = () => {
     setMessage('')
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       })

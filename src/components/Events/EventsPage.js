@@ -3,7 +3,6 @@ import {
   Container,
   Grid,
   Card,
-  CardContent,
   CardMedia,
   Typography,
   Box,
@@ -11,8 +10,6 @@ import {
   Chip,
   Tab,
   Tabs,
-  Avatar,
-  AvatarGroup,
   IconButton,
   Dialog,
   DialogTitle,
@@ -21,21 +18,16 @@ import {
   Paper,
   Stack,
   Divider,
-  Badge,
   CircularProgress,
 } from '@mui/material';
 import {
-  Event,
   LocationOn,
   Schedule,
   People,
   FavoriteBorder,
   Favorite,
-  Share,
   CalendarToday,
   Close,
-  Person,
-  AttachMoney,
 } from '@mui/icons-material';
 import { useAuth } from '../../App';
 import * as supabaseLib from '../../lib/supabase';

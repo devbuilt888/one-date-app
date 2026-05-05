@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Button, Typography, Paper, Alert, List, ListItem, ListItemText, Divider } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Button, Typography, Paper, Alert, List, ListItem, ListItemText } from '@mui/material';
 import { supabase, matching, chat } from '../../lib/supabase';
 import { useAuth } from '../../App';
 
@@ -11,7 +11,7 @@ const MatchDebugger = () => {
   const [loading, setLoading] = useState(false);
   const [allLikes, setAllLikes] = useState([]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user) return;
     
     setLoading(true);
@@ -43,11 +43,11 @@ const MatchDebugger = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [loadData]);
 
   const testLikeUser = async () => {
     if (!user) return;

@@ -32,6 +32,9 @@ export const getCurrentLocation = () => {
           case error.TIMEOUT:
             errorMessage = 'Location request timed out'
             break
+          default:
+            errorMessage = `Location error (code ${error.code})`
+            break
         }
         
         reject(new Error(errorMessage))
@@ -87,7 +90,6 @@ export const getGeohashRanges = (lat, lng, radiusKm) => {
 // Generate all geohash ranges between min and max
 const generateGeohashRanges = (minHash, maxHash, precision) => {
   const ranges = []
-  const base32 = '0123456789bcdefghjkmnpqrstuvwxyz'
   
   // This is a simplified version - in production you'd want a more sophisticated algorithm
   // For now, we'll use a basic approach that works for small ranges

@@ -9,11 +9,8 @@ import {
   CardMedia,
   Chip,
   Paper,
-  Button,
   Stack,
-  Avatar,
   Badge,
-  Divider,
 } from '@mui/material';
 import {
   Favorite,
@@ -21,9 +18,7 @@ import {
   Refresh,
   LocationOn,
   Work,
-  School,
   AutoAwesome,
-  Star,
   Verified,
   Info,
   MoreHoriz,
