@@ -27,21 +27,26 @@ const DECORATION_OVERFLOW_Y = 36;
 const FunQuizCard = ({ quiz, onClick, statusVariant = 'not_started' }) => {
   const completed = statusVariant === 'completed';
   const decorationUrl = getQuizDecorationPublicUrl(quiz.id);
+  const isClickable = typeof onClick === 'function';
 
   return (
     <Card
-      onClick={onClick}
+      {...(isClickable ? { onClick } : {})}
       sx={{
         height: 100,
         position: 'relative',
         background: quiz.gradient,
-        cursor: 'pointer',
+        cursor: isClickable ? 'pointer' : 'default',
         transition: 'all 0.3s ease',
         overflow: 'hidden',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 4,
-        },
+        ...(isClickable
+          ? {
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: 4,
+              },
+            }
+          : {}),
       }}
     >
       <Box
@@ -135,6 +140,7 @@ const FunQuizCard = ({ quiz, onClick, statusVariant = 'not_started' }) => {
           }}
         >
           <Chip
+            component="span"
             label={statusLabel(statusVariant)}
             size="small"
             sx={{
@@ -145,6 +151,7 @@ const FunQuizCard = ({ quiz, onClick, statusVariant = 'not_started' }) => {
               borderColor: 'rgba(255,255,255,0.85)',
               backgroundColor: completed ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.12)',
               '& .MuiChip-label': { px: 1 },
+              pointerEvents: 'none',
               ...(completed ? { border: '1px solid rgba(255,255,255,0.5)' } : { border: '1px solid rgba(255,255,255,0.45)' }),
             }}
             variant="outlined"

@@ -12,7 +12,7 @@ import {
   ArrowForward,
 } from '@mui/icons-material';
 
-const CreateProfilePrompt = ({ onCreateProfile }) => {
+const CreateProfilePrompt = ({ onCreateProfile = () => {} }) => {
   return (
     <Paper
       elevation={0}

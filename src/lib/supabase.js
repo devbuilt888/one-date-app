@@ -64,11 +64,15 @@ export const profiles = {
 
   // Get profile by user ID
   getById: async (userId) => {
+    if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+      return { data: null, error: null }
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
     return { data, error }
   },
 
@@ -668,4 +672,371 @@ export const storage = {
       return { data: null, error }
     }
   }
+}
+
+export const quizCompletions = {
+  save: async (userId, quizId, resultLabel, resultKey) => {
+    const { data, error } = await supabase
+      .from('quiz_completions')
+      .upsert(
+        {
+          user_id: userId,
+          quiz_id: quizId,
+          result_label: resultLabel,
+          result_key: resultKey,
+          completed_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,quiz_id' }
+      )
+      .select()
+      .single()
+
+    return { data, error }
+  },
+
+  getByUser: async (userId) => {
+    const { data, error } = await supabase
+      .from('quiz_completions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('completed_at', { ascending: false })
+
+    return { data, error }
+  },
+
+  getAll: async () => {
+    const { data, error } = await supabase
+      .from('quiz_completions')
+      .select('*')
+      .order('completed_at', { ascending: false })
+
+    return { data, error }
+  },
+}
+
+export const vendorSponsoredEvents = {
+  submitApplication: async (application) => {
+    const { data, error } = await supabase
+      .from('vendor_sponsored_events')
+      .insert({
+        business_name: application.businessName,
+        contact_name: application.contactName,
+        contact_email: application.contactEmail,
+        contact_phone: application.contactPhone || null,
+        business_website: application.businessWebsite || null,
+        title: application.title,
+        description: application.description,
+        location: application.location,
+        category: application.category,
+        image_url: application.imageUrl || null,
+        event_starts_at: application.eventStartsAt,
+        event_ends_at: application.eventEndsAt || null,
+        proposed_active_from: application.proposedActiveFrom || null,
+        proposed_active_until: application.proposedActiveUntil || null,
+        submitted_by_user_id: application.submittedByUserId || null,
+        status: 'pending',
+      })
+      .select()
+      .single()
+
+    return { data, error }
+  },
+
+  getActive: async () => {
+    const now = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('vendor_sponsored_events')
+      .select('*')
+      .eq('status', 'active')
+      .not('active_from', 'is', null)
+      .not('active_until', 'is', null)
+      .lte('active_from', now)
+      .gte('active_until', now)
+      .order('active_from', { ascending: true })
+
+    return { data: data || [], error }
+  },
+
+  getMine: async () => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { data: [], error: authError }
+    }
+
+    const { data, error } = await supabase
+      .from('vendor_sponsored_events')
+      .select('*')
+      .eq('submitted_by_user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    return { data: data || [], error }
+  },
+}
+
+export const personalEventsDb = {
+  save: async (event) => {
+    const { data, error } = await supabase
+      .from('personal_events')
+      .insert({
+        host_user_id: event.hostUserId,
+        host_name: event.hostName,
+        title: event.title,
+        approximate_location: event.approximateLocation,
+        event_type: event.eventType,
+        description: event.description,
+        event_datetime: event.datetime,
+      })
+      .select(`
+        *,
+        host:profiles!personal_events_host_user_id_fkey(*)
+      `)
+      .single()
+
+    return { data, error }
+  },
+
+  getAll: async () => {
+    const { data, error } = await supabase
+      .from('personal_events')
+      .select(`
+        *,
+        host:profiles!personal_events_host_user_id_fkey(*)
+      `)
+      .order('created_at', { ascending: false })
+
+    return { data, error }
+  },
+}
+
+export const personalEventApplications = {
+  apply: async (eventId) => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { data: null, error: authError || new Error('Not authenticated') }
+
+    const { data, error } = await supabase
+      .from('personal_event_applications')
+      .insert({
+        event_id: eventId,
+        applicant_user_id: user.id,
+        status: 'pending',
+      })
+      .select()
+      .single()
+
+    return { data, error }
+  },
+
+  hasApplied: async (eventId) => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { applied: false, error: authError }
+
+    const { data, error } = await supabase
+      .from('personal_event_applications')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('applicant_user_id', user.id)
+      .maybeSingle()
+
+    return { applied: Boolean(data), error }
+  },
+
+  getPendingForEvent: async (eventId) => {
+    const { data, error } = await supabase
+      .from('personal_event_applications')
+      .select(`
+        *,
+        applicant:profiles!personal_event_applications_applicant_user_id_fkey(*)
+      `)
+      .eq('event_id', eventId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+
+    return { data: data || [], error }
+  },
+
+  getPendingCountsForHost: async (hostUserId) => {
+    const { data: events, error: eventsError } = await supabase
+      .from('personal_events')
+      .select('id')
+      .eq('host_user_id', hostUserId)
+
+    if (eventsError) return { data: {}, error: eventsError }
+
+    const eventIds = (events || []).map((row) => row.id)
+    if (eventIds.length === 0) return { data: {}, error: null }
+
+    const { data, error } = await supabase
+      .from('personal_event_applications')
+      .select('event_id')
+      .in('event_id', eventIds)
+      .eq('status', 'pending')
+
+    if (error) return { data: {}, error }
+
+    const counts = {}
+    ;(data || []).forEach((row) => {
+      counts[row.event_id] = (counts[row.event_id] || 0) + 1
+    })
+    return { data: counts, error: null }
+  },
+
+  matchApplicant: async (eventId, applicantUserId, hostUserId) => {
+    const userA = hostUserId < applicantUserId ? hostUserId : applicantUserId
+    const userB = hostUserId < applicantUserId ? applicantUserId : hostUserId
+
+    const { data: existingMatch } = await supabase
+      .from('matches')
+      .select('*')
+      .or(`and(user_a_id.eq.${userA},user_b_id.eq.${userB}),and(user_a_id.eq.${userB},user_b_id.eq.${userA})`)
+      .limit(1)
+
+    let match = existingMatch?.[0] || null
+
+    if (!match) {
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .insert({ user_a_id: userA, user_b_id: userB })
+        .select()
+        .single()
+
+      if (matchError) return { data: null, error: matchError }
+      match = matchData
+    }
+
+    if (match?.id) {
+      await supabase.from('conversations').insert({ match_id: match.id }).select()
+    }
+
+    const { error: updateError } = await supabase
+      .from('personal_event_applications')
+      .update({ status: 'matched' })
+      .eq('event_id', eventId)
+      .eq('applicant_user_id', applicantUserId)
+
+    return { data: { match }, error: updateError }
+  },
+}
+
+export const admin = {
+  isSuperAdmin: async () => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { isAdmin: false, error: authError?.message || 'Not authenticated' }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_super_admin')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (error) {
+      return { isAdmin: false, error: error.message }
+    }
+
+    if (!data) {
+      return { isAdmin: false, error: 'No profile found for this account.' }
+    }
+
+    return { isAdmin: Boolean(data.is_super_admin), error: null }
+  },
+
+  getAllProfiles: async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    return { data, error }
+  },
+
+  getUserEmails: async () => {
+    const { data, error } = await supabase.rpc('admin_get_user_emails')
+    return { data, error }
+  },
+
+  getAllMatches: async () => {
+    const { data, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        user_a:profiles!matches_user_a_id_fkey(id, display_name, photo_urls, age, gender),
+        user_b:profiles!matches_user_b_id_fkey(id, display_name, photo_urls, age, gender)
+      `)
+      .order('created_at', { ascending: false })
+
+    return { data, error }
+  },
+
+  getAllLikes: async () => {
+    const { data, error } = await supabase
+      .from('likes')
+      .select(`
+        *,
+        from_user:profiles!likes_from_user_id_fkey(id, display_name),
+        to_user:profiles!likes_to_user_id_fkey(id, display_name)
+      `)
+      .order('created_at', { ascending: false })
+
+    return { data, error }
+  },
+
+  getAllPersonalEvents: async () => {
+    const { data, error } = await supabase
+      .from('personal_events')
+      .select(`
+        *,
+        host:profiles!personal_events_host_user_id_fkey(*)
+      `)
+      .order('created_at', { ascending: false })
+
+    return { data, error }
+  },
+
+  getAllVendorSponsoredEvents: async () => {
+    const { data, error } = await supabase
+      .from('vendor_sponsored_events')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    return { data, error }
+  },
+
+  updateVendorSponsoredEvent: async (id, updates) => {
+    const { data, error } = await supabase
+      .from('vendor_sponsored_events')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data, error }
+  },
+
+  getAllConversations: async () => {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select(`
+        *,
+        match:matches!conversations_match_id_fkey(
+          *,
+          user_a:profiles!matches_user_a_id_fkey(id, display_name),
+          user_b:profiles!matches_user_b_id_fkey(id, display_name)
+        ),
+        messages(
+          *,
+          sender:profiles!messages_sender_id_fkey(id, display_name)
+        )
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) return { data, error }
+
+    const sorted = (data || []).map((conversation) => ({
+      ...conversation,
+      messages: (conversation.messages || []).sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      ),
+    }))
+
+    return { data: sorted, error: null }
+  },
 }

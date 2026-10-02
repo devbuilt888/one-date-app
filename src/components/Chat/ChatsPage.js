@@ -19,13 +19,41 @@ import { Send, Search, MoreVert, Favorite, PhotoCamera, AttachFile } from '@mui/
 import { useAuth } from '../../App';
 import { chat } from '../../lib/supabase';
 
-const ChatsPage = () => {
+const PREVIEW_MESSAGES = [
+  {
+    id: 'm1',
+    sender: 'Maya Chen',
+    message: 'That coffee shop idea sounds perfect.',
+    timestamp: '6:12 PM',
+    isMine: false,
+  },
+  {
+    id: 'm2',
+    sender: 'You',
+    message: 'Saturday at 3 works. I will grab a table by the window.',
+    timestamp: '6:14 PM',
+    isMine: true,
+  },
+];
+
+const PREVIEW_CHAT = {
+  id: 'preview-chat',
+  name: 'Maya Chen',
+  avatar: '/images/users/sarahJohnson.jpeg',
+  lastMessage: 'Saturday at 3 works. I will grab a table by the window.',
+  timestamp: 'Today',
+  unread: 1,
+  online: true,
+  messages: PREVIEW_MESSAGES,
+};
+
+const ChatsPage = ({ preview = false }) => {
   const { user } = useAuth();
-  const [selectedChat, setSelectedChat] = useState(null);
+  const [selectedChat, setSelectedChat] = useState(preview ? PREVIEW_CHAT : null);
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [conversations, setConversations] = useState([]);
-  const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState(preview ? [PREVIEW_CHAT] : []);
+  const [messages, setMessages] = useState(preview ? PREVIEW_MESSAGES : []);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -39,6 +67,7 @@ const ChatsPage = () => {
   }, [messages]);
 
   useEffect(() => {
+    if (preview) return;
     const loadConversations = async () => {
       try {
         const { data, error } = await chat.getConversations();
@@ -80,6 +109,7 @@ const ChatsPage = () => {
   }, [user?.id]);
 
   const handleSendMessage = async () => {
+    if (preview) return;
     if (newMessage.trim() && selectedChat) {
       const messageText = newMessage.trim();
       setNewMessage(''); // Clear input immediately for better UX
@@ -120,6 +150,7 @@ const ChatsPage = () => {
 
   // Load messages when a chat is selected
   useEffect(() => {
+    if (preview) return;
     const loadMessages = async () => {
       if (!selectedChat) return;
       
@@ -155,7 +186,7 @@ const ChatsPage = () => {
 
   // Subscribe to new messages for the selected chat
   useEffect(() => {
-    if (!selectedChat) return;
+    if (preview || !selectedChat) return;
     
     console.log('Setting up real-time subscription for conversation:', selectedChat.id);
     
@@ -216,12 +247,13 @@ const ChatsPage = () => {
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper elevation={3} sx={{ height: '100%', borderRadius: 3, overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: '1px solid #eee' }}>
-              <TextField
-                fullWidth
-                placeholder="Search conversations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                size="small"
+                <TextField
+                  fullWidth
+                  placeholder="Search conversations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  size="small"
+                  disabled={preview}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -397,6 +429,7 @@ const ChatsPage = () => {
                 <Box sx={{ p: 2, borderTop: '1px solid #eee' }}>
                   <TextField
                     fullWidth
+                    disabled={preview}
                     placeholder="Type a message..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Paper,
   TextField,
   Button,
   Typography,
@@ -17,13 +15,27 @@ import {
   Stepper,
   Step,
   StepLabel,
+  Stack,
 } from '@mui/material';
-import { Visibility, VisibilityOff, Favorite } from '@mui/icons-material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../../App';
+import AuthPageShell from './AuthPageShell';
 
-const SignupPage = () => {
+const SAMPLE_SIGNUP = {
+  email: 'maya@example.com',
+  password: 'password',
+  confirmPassword: 'password',
+  name: 'Maya Chen',
+  age: '26',
+  gender: 'female',
+  interestedIn: 'male',
+  bio: 'Coffee walks, new restaurants, and long conversations.',
+  location: 'Uptown',
+};
+
+const SignupPage = ({ preview = false, embedded = false }) => {
   const [activeStep, setActiveStep] = useState(0);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(preview ? SAMPLE_SIGNUP : {
     email: '',
     password: '',
     confirmPassword: '',
@@ -72,6 +84,7 @@ const SignupPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (preview) return;
     setError('');
     setLoading(true);
 
@@ -113,6 +126,7 @@ const SignupPage = () => {
               margin="normal"
               required
               fullWidth
+              disabled={preview}
               id="email"
               label="Email Address"
               name="email"
@@ -125,6 +139,7 @@ const SignupPage = () => {
               margin="normal"
               required
               fullWidth
+              disabled={preview}
               name="password"
               label="Password"
               type={showPassword ? 'text' : 'password'}
@@ -150,6 +165,7 @@ const SignupPage = () => {
               margin="normal"
               required
               fullWidth
+              disabled={preview}
               name="confirmPassword"
               label="Confirm Password"
               type="password"
@@ -167,6 +183,7 @@ const SignupPage = () => {
               margin="normal"
               required
               fullWidth
+              disabled={preview}
               id="name"
               label="Full Name"
               name="name"
@@ -178,6 +195,7 @@ const SignupPage = () => {
               margin="normal"
               required
               fullWidth
+              disabled={preview}
               id="age"
               label="Age"
               name="age"
@@ -190,6 +208,7 @@ const SignupPage = () => {
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel id="gender-label">Gender</InputLabel>
               <Select
+                disabled={preview}
                 labelId="gender-label"
                 id="gender"
                 value={formData.gender}
@@ -205,6 +224,7 @@ const SignupPage = () => {
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel id="interested-label">Interested In</InputLabel>
               <Select
+                disabled={preview}
                 labelId="interested-label"
                 id="interestedIn"
                 value={formData.interestedIn}
@@ -226,6 +246,7 @@ const SignupPage = () => {
               margin="normal"
               required
               fullWidth
+              disabled={preview}
               id="bio"
               label="Bio"
               name="bio"
@@ -240,6 +261,7 @@ const SignupPage = () => {
               margin="normal"
               required
               fullWidth
+              disabled={preview}
               id="location"
               label="Location"
               name="location"
@@ -255,133 +277,83 @@ const SignupPage = () => {
     }
   };
 
-  return (
-    <Container component="main" maxWidth="sm">
-      <Box
-        sx={{
-          marginTop: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          minHeight: '100vh',
-        }}
-      >
-        <Paper
-          elevation={6}
-          sx={{
-            padding: 3,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-            background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8a80 100%)',
-            color: 'white',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <Favorite sx={{ fontSize: 32, mr: 1 }} />
-            <Typography component="h1" variant="h4" fontWeight="bold">
-              Join OneDate
-            </Typography>
-          </Box>
-        </Paper>
-
-        <Paper
-          elevation={3}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-            mt: -2,
-            borderRadius: 2,
-          }}
-        >
-          <Stepper activeStep={activeStep} sx={{ width: '100%', mb: 4 }}>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-
-          {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-              {error}
-            </Alert>
+  const stepControls = preview ? (
+    <Stack spacing={3} sx={{ mt: 1 }}>
+      {steps.map((label, index) => (
+        <Box key={label}>
+          <Typography variant="overline" color="text.secondary" fontWeight={700}>
+            Step {index + 1} · {label}
+          </Typography>
+          {renderStepContent(index)}
+        </Box>
+      ))}
+      <Button fullWidth variant="contained" disabled sx={{ py: 1.4, fontWeight: 700 }}>
+        Create Account
+      </Button>
+    </Stack>
+  ) : (
+    <>
+      <Stepper activeStep={activeStep} sx={{ width: '100%', mb: 3 }}>
+        {steps.map((label) => (
+          <Step key={label}>
+            <StepLabel>{label}</StepLabel>
+          </Step>
+        ))}
+      </Stepper>
+      {error && (
+        <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+        {renderStepContent(activeStep)}
+        <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
+          <Button color="inherit" disabled={activeStep === 0} onClick={handleBack} sx={{ mr: 1 }}>
+            Back
+          </Button>
+          <Box sx={{ flex: '1 1 auto' }} />
+          {activeStep === steps.length - 1 ? (
+            <Button type="submit" variant="contained" disabled={loading} sx={{ py: 1.2, px: 3, fontWeight: 700 }}>
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </Button>
+          ) : (
+            <Button onClick={handleNext} variant="contained" sx={{ py: 1.2, px: 3, fontWeight: 700 }}>
+              Next
+            </Button>
           )}
-
-          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-            {renderStepContent(activeStep)}
-
-            <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
-              <Button
-                color="inherit"
-                disabled={activeStep === 0}
-                onClick={handleBack}
-                sx={{ mr: 1 }}
-              >
-                Back
-              </Button>
-              <Box sx={{ flex: '1 1 auto' }} />
-              {activeStep === steps.length - 1 ? (
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={loading}
-                  sx={{
-                    py: 1.5,
-                    px: 4,
-                    fontSize: '1.1rem',
-                    fontWeight: 'bold',
-                    background: 'linear-gradient(45deg, #ff6b6b 30%, #ff8a80 90%)',
-                    '&:hover': {
-                      background: 'linear-gradient(45deg, #ff5252 30%, #ff6b6b 90%)',
-                    },
-                  }}
-                >
-                  {loading ? 'Creating Account...' : 'Create Account'}
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleNext}
-                  variant="contained"
-                  sx={{
-                    py: 1.5,
-                    px: 4,
-                    fontSize: '1.1rem',
-                    fontWeight: 'bold',
-                    background: 'linear-gradient(45deg, #ff6b6b 30%, #ff8a80 90%)',
-                    '&:hover': {
-                      background: 'linear-gradient(45deg, #ff5252 30%, #ff6b6b 90%)',
-                    },
-                  }}
-                >
-                  Next
-                </Button>
-              )}
-            </Box>
-          </Box>
-
-          <Box sx={{ textAlign: 'center', mt: 3 }}>
-            <Typography variant="body2">
-              Already have an account?{' '}
-              <Link
-                to="/login"
-                style={{
-                  color: '#ff6b6b',
-                  textDecoration: 'none',
-                  fontWeight: 'bold',
-                }}
-              >
-                Sign in here
-              </Link>
-            </Typography>
-          </Box>
-        </Paper>
+        </Box>
       </Box>
-    </Container>
+    </>
+  );
+
+  return (
+    <AuthPageShell
+      embedded={embedded}
+      maxWidth="sm"
+      title="Create your account"
+      subtitle="Three short steps: your login, who you are, and a short bio."
+      footer={!preview ? (
+        <Box sx={{ textAlign: 'center', mt: 3 }}>
+          <Typography variant="body2" color="text.secondary">
+            Already have an account?{' '}
+            <Link to="/login" style={{ color: '#6366F1', fontWeight: 700, textDecoration: 'none' }}>
+              Sign in
+            </Link>
+          </Typography>
+          <Button
+            component={Link}
+            to="/vendors/signup"
+            variant="outlined"
+            fullWidth
+            sx={{ mt: 2, py: 1.2, fontWeight: 700 }}
+          >
+            I&apos;m a business wanting to sponsor a dating event
+          </Button>
+        </Box>
+      ) : null}
+    >
+      {stepControls}
+    </AuthPageShell>
   );
 };
 

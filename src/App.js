@@ -10,15 +10,19 @@ import LoginPage from './components/Auth/LoginPage';
 import SignupPage from './components/Auth/SignupPage';
 import Dashboard from './components/Dashboard/Dashboard';
 import MatchingPage from './components/Matching/MatchingPage';
-import EventsPage from './components/Events/EventsPage';
 import ProfilePage from './components/Profile/ProfilePage';
 import ChatsPage from './components/Chat/ChatsPage';
 import Navbar from './components/Navigation/Navbar';
 import SeedPage from './components/Admin/SeedPage';
+import SuperAdminDashboard from './components/Admin/SuperAdminDashboard';
 import InitialPreferencesQuiz from './components/Quiz/InitialPreferencesQuiz';
 import QuizPage from './components/Quiz/QuizPage';
 import LandingPage from './components/Landing/LandingPage';
+import TourPage from './components/Tour/TourPage';
 import PersonalEventApplyPage from './components/PersonalEvents/PersonalEventApplyPage';
+import PersonalEventReviewPage from './components/PersonalEvents/PersonalEventReviewPage';
+import BusinessSignupPage from './components/Vendors/BusinessSignupPage';
+import VendorEventsPage from './components/Vendors/VendorEventsPage';
 import { hasCompletedPreferencesQuiz } from './lib/preferencesQuiz';
 
 // Auth Context
@@ -550,6 +554,13 @@ function App() {
               <Box sx={{ flex: 1 }}>
                 <Routes>
                   <Route path="/landing" element={<LandingPage />} />
+                  <Route path="/tour" element={<TourPage />} />
+                  <Route path="/vendors/signup" element={<BusinessSignupPage />} />
+                  <Route path="/vendors/register" element={<Navigate to="/vendors/signup" replace />} />
+                  <Route
+                    path="/vendors/events"
+                    element={isAuthenticated ? <VendorEventsPage /> : <Navigate to="/vendors/signup" replace />}
+                  />
                   <Route 
                     path="/login" 
                     element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} 
@@ -587,6 +598,20 @@ function App() {
                     } 
                   />
                   <Route
+                    path="/personal-events/:eventId/review"
+                    element={
+                      isAuthenticated ? (
+                        hasCompletedOnboardingQuiz ? (
+                          <PersonalEventReviewPage />
+                        ) : (
+                          <Navigate to="/onboarding/preferences" />
+                        )
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    }
+                  />
+                  <Route
                     path="/personal-events/:eventId/apply"
                     element={
                       isAuthenticated ? (
@@ -600,19 +625,9 @@ function App() {
                       )
                     }
                   />
-                  <Route 
-                    path="/events" 
-                    element={
-                      isAuthenticated ? (
-                        hasCompletedOnboardingQuiz ? (
-                          <EventsPage />
-                        ) : (
-                          <Navigate to="/onboarding/preferences" />
-                        )
-                      ) : (
-                        <Navigate to="/login" />
-                      )
-                    } 
+                  <Route
+                    path="/events"
+                    element={<Navigate to="/dashboard" replace />}
                   />
                   <Route 
                     path="/profile" 
@@ -673,6 +688,16 @@ function App() {
                   <Route 
                     path="/seed" 
                     element={<SeedPage />} 
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      isAuthenticated ? (
+                        <SuperAdminDashboard />
+                      ) : (
+                        <Navigate to="/login" />
+                      )
+                    }
                   />
                   <Route 
                     path="/" 

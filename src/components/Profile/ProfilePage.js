@@ -1,109 +1,157 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Container,
-  Paper,
-  Typography,
   Box,
-  TextField,
   Button,
-  Avatar,
-  Grid,
   Chip,
-  FormControl,
-  Select,
-  MenuItem,
-  Divider,
-  Stack,
-  Alert,
   CircularProgress,
+  Container,
+  FormControl,
+  Grid,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
+  Alert,
 } from '@mui/material';
 import {
   Edit,
   Save,
-  Cancel,
-  LocationOn,
-  Work,
-  School,
   Close,
+  LocationOn,
+  AutoAwesome,
+  PhotoCamera,
 } from '@mui/icons-material';
 import { useAuth } from '../../App';
-import { profiles } from '../../lib/supabase';
+import { profiles, quizCompletions } from '../../lib/supabase';
 import { getCurrentLocation } from '../../utils/geolocation';
+import { getProfileQuizResults } from '../../lib/quizReport';
 import ImageUpload from './ImageUpload';
 import CreateProfilePrompt from './CreateProfilePrompt';
 
-const ProfilePage = () => {
+const EMPTY_PROFILE = {
+  display_name: '',
+  age: '',
+  bio: '',
+  location: '',
+  work: '',
+  education: '',
+  interests: [],
+  gender: '',
+  preferences_gender: [],
+  photo_urls: [],
+  height: '',
+  exercise: '',
+  drinking: '',
+  smoking: '',
+  children: '',
+  lat: null,
+  lng: null,
+  geohash: '',
+};
+
+const SectionCard = ({ title, subtitle, children, action, compact = false }) => (
+  <Box
+    sx={{
+      p: compact ? { xs: 2, md: 1.75 } : { xs: 2.5, sm: 3 },
+      borderRadius: 3,
+      border: '1px solid rgba(15, 23, 42, 0.08)',
+      bgcolor: '#fff',
+      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04)',
+      height: compact ? '100%' : 'auto',
+    }}
+  >
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="flex-start"
+      sx={{ mb: compact ? 1.25 : 2.5 }}
+    >
+      <Box>
+        <Typography
+          variant="overline"
+          sx={{ color: 'text.secondary', letterSpacing: 1.2, fontWeight: 700, fontSize: '0.68rem' }}
+        >
+          {title}
+        </Typography>
+        {subtitle && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }}>
+            {subtitle}
+          </Typography>
+        )}
+      </Box>
+      {action}
+    </Stack>
+    {children}
+  </Box>
+);
+
+const FieldLabel = ({ children }) => (
+  <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mb: 0.75, display: 'block', letterSpacing: 0.5 }}>
+    {children}
+  </Typography>
+);
+
+const PREVIEW_PROFILE = {
+  display_name: 'Maya Chen',
+  age: 26,
+  bio: 'Coffee walks, new restaurants, and long conversations.',
+  location: 'Uptown',
+  work: 'Product designer',
+  education: 'State University',
+  interests: ['Coffee', 'Cooking', 'Live music'],
+  gender: 'female',
+  preferences_gender: ['male'],
+  photo_urls: ['/images/users/sarahJohnson.jpeg'],
+  height: "5'6\"",
+  exercise: 'Often',
+  drinking: 'Socially',
+  smoking: 'Never',
+  children: 'Someday',
+  lat: null,
+  lng: null,
+  geohash: '',
+};
+
+const ProfilePage = ({ preview = false }) => {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!preview);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [hasProfile, setHasProfile] = useState(false);
-  const [profileData, setProfileData] = useState({
-    display_name: '',
-    age: '',
-    bio: '',
-    location: '',
-    work: '',
-    education: '',
-    interests: [],
-    gender: '',
-    preferences_gender: [],
-    photo_urls: [],
-    height: '',
-    exercise: '',
-    drinking: '',
-    smoking: '',
-    children: '',
-    lat: null,
-    lng: null,
-    geohash: '',
-  });
+  const [hasProfile, setHasProfile] = useState(preview);
+  const [profileData, setProfileData] = useState(preview ? PREVIEW_PROFILE : EMPTY_PROFILE);
+  const [savedSnapshot, setSavedSnapshot] = useState(preview ? PREVIEW_PROFILE : EMPTY_PROFILE);
   const [newInterest, setNewInterest] = useState('');
+  const [quizResults, setQuizResults] = useState([]);
 
-  // Fetch user profile data
+  const loadQuizResults = useCallback(async (userId) => {
+    if (!userId) return;
+    const { data } = await quizCompletions.getByUser(userId);
+    setQuizResults(getProfileQuizResults(userId, data || []));
+  }, []);
+
   useEffect(() => {
+    if (preview) return;
     const fetchProfile = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
-        const { data, error } = await profiles.getById(user.id);
-        
-        if (error) {
-          console.error('Error fetching profile:', error);
-          // If no profile exists, show create profile prompt
-          if (error.code === 'PGRST116') {
-            console.log('No profile found, showing create profile prompt...');
-            setHasProfile(false);
-            setProfileData({
-              display_name: user?.user_metadata?.display_name || user?.email?.split('@')[0] || '',
-              age: '',
-              bio: '',
-              location: '',
-              work: '',
-              education: '',
-              interests: [],
-              gender: '',
-              preferences_gender: [],
-              photo_urls: [],
-              height: '',
-              exercise: '',
-              drinking: '',
-              smoking: '',
-              children: '',
-              lat: null,
-              lng: null,
-              geohash: '',
-            });
-          } else {
-            setError('Failed to load profile data');
-            return;
-          }
+        const { data, error: fetchError } = await profiles.getById(user.id);
+
+        if (fetchError?.code === 'PGRST116') {
+          setHasProfile(false);
+          setProfileData({
+            ...EMPTY_PROFILE,
+            display_name: user?.user_metadata?.display_name || user?.email?.split('@')[0] || '',
+          });
+        } else if (fetchError) {
+          setError('Failed to load profile data');
         } else if (data) {
           setHasProfile(true);
-          setProfileData({
+          const loaded = {
             display_name: data.display_name || '',
             age: data.age || '',
             bio: data.bio || '',
@@ -122,10 +170,14 @@ const ProfilePage = () => {
             lat: data.lat,
             lng: data.lng,
             geohash: data.geohash || '',
-          });
+          };
+          setProfileData(loaded);
+          setSavedSnapshot(loaded);
         }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
+
+        await loadQuizResults(user.id);
+      } catch (err) {
+        console.error('Error fetching profile:', err);
         setError('Failed to load profile data');
       } finally {
         setLoading(false);
@@ -133,7 +185,7 @@ const ProfilePage = () => {
     };
 
     fetchProfile();
-  }, [user]);
+  }, [user, loadQuizResults]);
 
   const handleChange = (field) => (event) => {
     setProfileData({ ...profileData, [field]: event.target.value });
@@ -144,87 +196,74 @@ const ProfilePage = () => {
       setSaving(true);
       setError('');
       setSuccess('');
-      
-      // Get user's location if not already set
+
       let locationData = { lat: profileData.lat, lng: profileData.lng, geohash: profileData.geohash };
-      
+
       if (!profileData.lat || !profileData.lng) {
         try {
           const location = await getCurrentLocation();
           locationData = {
             lat: location.lat,
             lng: location.lng,
-            geohash: location.geohash
+            geohash: location.geohash,
           };
-        } catch (error) {
-          console.warn('Could not get location:', error);
+        } catch (locError) {
+          console.warn('Could not get location:', locError);
         }
       }
-      
-      // Only include columns that are known to exist in the current schema
+
       const profileToSave = {
         id: user.id,
         display_name: profileData.display_name || null,
-        age: profileData.age ? parseInt(profileData.age) : null,
+        age: profileData.age ? parseInt(profileData.age, 10) : null,
         bio: profileData.bio || null,
+        location: profileData.location || null,
+        work: profileData.work || null,
+        education: profileData.education || null,
         interests: profileData.interests || [],
         gender: profileData.gender || null,
         preferences_gender: Array.isArray(profileData.preferences_gender)
           ? profileData.preferences_gender
-          : (profileData.preferences_gender ? [profileData.preferences_gender] : []),
+          : profileData.preferences_gender
+            ? [profileData.preferences_gender]
+            : [],
         photo_urls: profileData.photo_urls || [],
         ...locationData,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
-      
-      const { error } = await profiles.upsert(profileToSave);
-      
-      if (error) {
-        setError(`Failed to save profile: ${error.message}`);
+
+      const { error: saveError } = await profiles.upsert(profileToSave);
+
+      if (saveError) {
+        setError(`Failed to save profile: ${saveError.message}`);
         return;
       }
-      
+
+      const merged = { ...profileData, ...locationData };
+      setProfileData(merged);
+      setSavedSnapshot(merged);
       setSuccess('Profile saved successfully!');
       setIsEditing(false);
-      
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
-      
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      setError(`Failed to save profile: ${error.message}`);
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setError(`Failed to save profile: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancel = () => {
-    // Reset to original data
-    setProfileData({
-      name: user?.name || 'Demo User',
-      age: user?.age || '25',
-      bio: user?.bio || 'Passionate about life, love, and meaningful connections. Always up for an adventure!',
-      location: user?.location || 'New York, NY',
-      work: 'Senior Product Designer',
-      education: 'New York University',
-      interests: ['Travel', 'Photography', 'Yoga', 'Coffee', 'Music', 'Art'],
-      gender: user?.gender || 'female',
-      interestedIn: user?.interestedIn || 'male',
-      photos: ['/images/users/sarahJohnson.jpeg', '/images/users/emmaWilson.jpeg', '/images/users/oliviaBrown.jpeg'],
-      height: '5\'6"',
-      exercise: 'Regularly',
-      drinking: 'Socially',
-      smoking: 'Never',
-      children: 'Want someday',
-    });
+    setProfileData(savedSnapshot);
     setIsEditing(false);
+    setError('');
   };
 
   const handleInterestAdd = () => {
     if (newInterest.trim() && !profileData.interests.includes(newInterest.trim())) {
       setProfileData({
         ...profileData,
-        interests: [...profileData.interests, newInterest.trim()]
+        interests: [...profileData.interests, newInterest.trim()],
       });
       setNewInterest('');
     }
@@ -233,533 +272,446 @@ const ProfilePage = () => {
   const handleInterestRemove = (interestToRemove) => {
     setProfileData({
       ...profileData,
-      interests: profileData.interests.filter(interest => interest !== interestToRemove)
+      interests: profileData.interests.filter((interest) => interest !== interestToRemove),
     });
   };
 
   const handlePhotosUpdate = (newPhotos) => {
-    setProfileData({
-      ...profileData,
-      photo_urls: newPhotos
-    });
+    setProfileData({ ...profileData, photo_urls: newPhotos });
   };
 
-  const handleCreateProfile = () => {
-    setIsEditing(true);
-    setHasProfile(true);
-  };
+  const completeness = useMemo(() => {
+    const fields = [
+      profileData.display_name,
+      profileData.age,
+      profileData.bio,
+      profileData.location,
+      profileData.work,
+      profileData.gender,
+      profileData.photo_urls?.length > 0,
+    ];
+    const filled = fields.filter(Boolean).length;
+    return Math.round((filled / fields.length) * 100);
+  }, [profileData]);
 
   if (loading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh' 
-      }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  // Show create profile prompt if no profile exists
   if (!hasProfile) {
     return (
-      <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh', py: 3 }}>
-        <Container maxWidth="md">
-          <CreateProfilePrompt onCreateProfile={handleCreateProfile} />
+      <Box sx={{ minHeight: '100vh', py: 4, bgcolor: '#F8FAFC' }}>
+        <Container maxWidth="sm">
+          <CreateProfilePrompt onCreateProfile={() => { setHasProfile(true); setIsEditing(true); }} />
         </Container>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh', py: 3 }}>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 4, 
-            mb: 4, 
-            backgroundColor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'grey.200',
+    <Box sx={{ minHeight: '100vh', bgcolor: '#F8FAFC', pb: { xs: 8, md: 3 } }}>
+      {/* Hero — shorter on desktop */}
+      <Box
+        sx={{
+          position: 'relative',
+          pt: { xs: 5, md: 3 },
+          pb: { xs: 8, md: 4.5 },
+          background: 'linear-gradient(135deg, #0F172A 0%, #312E81 45%, #6366F1 100%)',
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.12) 0%, transparent 45%), radial-gradient(circle at 80% 0%, rgba(244,114,182,0.18) 0%, transparent 40%)',
           }}
-        >
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          
-          {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {success}
-            </Alert>
-          )}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        />
+        <Container maxWidth="xl" sx={{ position: 'relative' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'flex-end' }} spacing={2}>
             <Box>
-              <Typography variant="h3" fontWeight="700" color="text.primary" sx={{ mb: 1 }}>
-                Profile Settings
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: 2 }}>
+                Your profile
               </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Manage your profile information and preferences
+              <Typography variant="h3" fontWeight={800} color="#fff" sx={{ fontSize: { xs: '2rem', md: '2rem' } }}>
+                {profileData.display_name || 'Unnamed'}
               </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+                {profileData.age && (
+                  <Chip label={`${profileData.age} years old`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff' }} />
+                )}
+                {profileData.location && (
+                  <Chip icon={<LocationOn sx={{ color: '#fff !important' }} />} label={profileData.location} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff' }} />
+                )}
+                <Chip label={`${completeness}% complete`} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff' }} />
+              </Stack>
             </Box>
-            
-            {!isEditing ? (
-              <Button
-                variant="contained"
-                startIcon={<Edit />}
-                onClick={() => setIsEditing(true)}
-                size="large"
-                sx={{ px: 3 }}
-              >
-                Edit Profile
-              </Button>
-            ) : (
-              <Stack direction="row" spacing={2}>
-                <Button
-                  variant="outlined"
-                  startIcon={<Cancel />}
-                  onClick={handleCancel}
-                  size="large"
-                >
-                  Cancel
-                </Button>
+
+            <Stack direction="row" spacing={1}>
+              {!isEditing ? (
                 <Button
                   variant="contained"
-                  startIcon={saving ? <CircularProgress size={20} /> : <Save />}
-                  onClick={handleSave}
-                  disabled={saving}
-                  size="large"
-                  sx={{ px: 3 }}
+                  startIcon={<Edit />}
+                  onClick={() => setIsEditing(true)}
+                  sx={{ bgcolor: '#fff', color: '#0F172A', '&:hover': { bgcolor: '#F1F5F9' } }}
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  Edit profile
                 </Button>
-              </Stack>
-            )}
-          </Box>
-        </Paper>
+              ) : (
+                <>
+                  <Button variant="outlined" startIcon={<Close />} onClick={handleCancel} sx={{ borderColor: 'rgba(255,255,255,0.4)', color: '#fff' }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />}
+                    onClick={handleSave}
+                    disabled={saving}
+                    sx={{ bgcolor: '#fff', color: '#0F172A' }}
+                  >
+                    {saving ? 'Saving…' : 'Save'}
+                  </Button>
+                </>
+              )}
+            </Stack>
+          </Stack>
+        </Container>
+      </Box>
 
-        <Grid container spacing={4}>
-          {/* Left Column - Photos */}
-          <Grid item xs={12} lg={4}>
-            <Stack spacing={4}>
-              {/* Profile Photos */}
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 3, 
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                }}
-              >
-                {isEditing ? (
-                  <ImageUpload
-                    userId={user?.id}
-                    currentPhotos={profileData.photo_urls}
-                    onPhotosUpdate={handlePhotosUpdate}
-                    maxPhotos={6}
-                  />
-                ) : (
-                  <Box>
-                    <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                      Profile Photos
-                    </Typography>
-                    
-                    {profileData.photo_urls.length > 0 ? (
-                      <Grid container spacing={2}>
-                        {profileData.photo_urls.map((photo, index) => (
-                          <Grid item xs={6} sm={4} key={index}>
-                            <Avatar
-                              src={photo}
-                              variant="rounded"
-                              sx={{
-                                width: '100%',
-                                height: 120,
-                                borderRadius: 2,
-                              }}
-                            />
-                          </Grid>
-                        ))}
-                      </Grid>
-                    ) : (
-                      <Box sx={{ textAlign: 'center', py: 4 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          No photos uploaded yet
+      <Container maxWidth="xl" sx={{ mt: { xs: -7, md: -4 }, position: 'relative', zIndex: 2, px: { xs: 2, md: 3 } }}>
+        {(error || success) && (
+          <Alert severity={error ? 'error' : 'success'} sx={{ mb: 2, borderRadius: 3 }}>
+            {error || success}
+          </Alert>
+        )}
+
+        <Box
+          sx={{
+            display: 'grid',
+            gap: { xs: 2, md: 1.5 },
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: '1fr',
+              md: 'repeat(12, minmax(0, 1fr))',
+            },
+            alignItems: 'start',
+          }}
+        >
+          {/* Photos — left rail, spans rows 1–2 beside details/about + personality */}
+          <Box sx={{ gridColumn: { xs: '1 / -1', md: '1 / 6', lg: '1 / 5' }, gridRow: { md: '1 / 3' }, height: { md: '100%' } }}>
+            <SectionCard title="Photos" compact>
+              {isEditing ? (
+                <ImageUpload
+                  userId={user?.id}
+                  currentPhotos={profileData.photo_urls}
+                  onPhotosUpdate={handlePhotosUpdate}
+                  maxPhotos={6}
+                />
+              ) : (
+                <Box>
+                  {profileData.photo_urls?.length > 0 ? (
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: { xs: 1.25, md: 1.5 },
+                      }}
+                    >
+                      {profileData.photo_urls.map((photo, index) => (
+                        <Box
+                          key={photo}
+                          component="img"
+                          src={photo}
+                          alt={`Profile ${index + 1}`}
+                          sx={{
+                            width: '100%',
+                            aspectRatio: '3/4',
+                            objectFit: 'cover',
+                            borderRadius: 2.5,
+                            border: index === 0 ? '3px solid #6366F1' : '1px solid rgba(15,23,42,0.08)',
+                            gridColumn: index === 0 ? 'span 2' : 'span 1',
+                            minHeight: index === 0 ? { xs: 200, md: 280, lg: 320 } : { xs: 100, md: 140, lg: 160 },
+                            maxHeight: index === 0 ? { xs: 280, md: 360, lg: 400 } : { xs: 160, md: 200, lg: 220 },
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        py: 6,
+                        textAlign: 'center',
+                        borderRadius: 2,
+                        border: '2px dashed',
+                        borderColor: 'grey.200',
+                        bgcolor: 'grey.50',
+                        minHeight: { md: 280, lg: 320 },
+                      }}
+                    >
+                      <PhotoCamera sx={{ fontSize: 40, color: 'grey.400', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No photos yet
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </SectionCard>
+          </Box>
+
+          {/* Details + About — stacked on right, row 1 */}
+          <Box
+            sx={{
+              gridColumn: { xs: '1 / -1', md: '6 / -1', lg: '5 / -1' },
+              gridRow: { md: '1' },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: { xs: 2, md: 1.5 },
+            }}
+          >
+            <SectionCard title="Details" compact>
+              <Grid container spacing={1.5}>
+                {[
+                  { label: 'Display name', field: 'display_name', type: 'text' },
+                  { label: 'Age', field: 'age', type: 'number' },
+                  { label: 'Location', field: 'location', type: 'text' },
+                  { label: 'Height', field: 'height', type: 'text' },
+                  { label: 'Work', field: 'work', type: 'text' },
+                  { label: 'Education', field: 'education', type: 'text' },
+                ].map(({ label, field, type }) => (
+                  <Grid item xs={12} sm={6} lg={4} key={field}>
+                    <FieldLabel>{label}</FieldLabel>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type={type}
+                      value={profileData[field]}
+                      onChange={handleChange(field)}
+                      disabled={!isEditing}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </SectionCard>
+
+            <SectionCard title="About" compact>
+              {isEditing ? (
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  size="small"
+                  value={profileData.bio}
+                  onChange={handleChange('bio')}
+                  placeholder="Tell people what makes you, you…"
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                  {profileData.bio || 'Add a bio to stand out.'}
+                </Typography>
+              )}
+            </SectionCard>
+          </Box>
+
+          {/* Personality — row 2 right */}
+          <Box sx={{ gridColumn: { xs: '1 / -1', md: '6 / -1', lg: '5 / -1' }, gridRow: { md: '2' } }}>
+            <SectionCard title="Personality" subtitle="Quiz results" action={<AutoAwesome color="primary" fontSize="small" />} compact>
+              {quizResults.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  Complete fun quizzes on your dashboard to build your personality profile.
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: 'repeat(2, minmax(0, 1fr))',
+                      md: 'repeat(2, minmax(0, 1fr))',
+                      lg: 'repeat(3, minmax(0, 1fr))',
+                      xl: 'repeat(4, minmax(0, 1fr))',
+                    },
+                    gap: 1.25,
+                  }}
+                >
+                  {quizResults.map((result) => (
+                    <Box
+                      key={result.quizId}
+                      sx={{
+                        position: 'relative',
+                        p: 1.5,
+                        borderRadius: 2.5,
+                        background: result.gradient || 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                        minHeight: 96,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        overflow: 'hidden',
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.42) 100%)',
+                          borderRadius: 2.5,
+                        },
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          position: 'relative',
+                          zIndex: 1,
+                          color: '#fff',
+                          fontWeight: 700,
+                          fontSize: '0.7rem',
+                          textShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                        }}
+                      >
+                        {result.badge}
+                      </Typography>
+                      <Box sx={{ position: 'relative', zIndex: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            lineHeight: 1.2,
+                            textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                          }}
+                        >
+                          {result.title}
+                        </Typography>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: '0.95rem',
+                            mt: 0.25,
+                            lineHeight: 1.2,
+                            textShadow: '0 1px 4px rgba(0,0,0,0.55)',
+                          }}
+                        >
+                          {result.resultLabel}
                         </Typography>
                       </Box>
-                    )}
-                  </Box>
-                )}
-              </Paper>
-
-              {/* Profile Stats */}
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 3, 
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                }}
-              >
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                  Profile Stats
-                </Typography>
-                
-                <Stack spacing={2}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">Profile Views</Typography>
-                    <Typography variant="h6" fontWeight="600">142</Typography>
-                  </Box>
-                  <Divider />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">Likes Received</Typography>
-                    <Typography variant="h6" fontWeight="600">89</Typography>
-                  </Box>
-                  <Divider />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">Profile Completeness</Typography>
-                    <Typography variant="h6" fontWeight="600" color="success.main">95%</Typography>
-                  </Box>
-                </Stack>
-              </Paper>
-            </Stack>
-          </Grid>
-
-          {/* Right Column - Profile Information */}
-          <Grid item xs={12} lg={8}>
-            <Stack spacing={4}>
-              {/* Basic Information */}
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 4, 
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                }}
-              >
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                  Basic Information
-                </Typography>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Full Name
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={profileData.display_name}
-                      onChange={handleChange('display_name')}
-                      disabled={!isEditing}
-                      placeholder="Enter your full name"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Age
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      value={profileData.age}
-                      onChange={handleChange('age')}
-                      disabled={!isEditing}
-                      placeholder="Enter your age"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Bio
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      value={profileData.bio}
-                      onChange={handleChange('bio')}
-                      disabled={!isEditing}
-                      placeholder="Tell us about yourself..."
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Location
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={profileData.location}
-                      onChange={handleChange('location')}
-                      disabled={!isEditing}
-                      placeholder="Enter your location"
-                      InputProps={{
-                        startAdornment: <LocationOn sx={{ color: 'text.secondary', mr: 1 }} />,
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Height
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={profileData.height}
-                      onChange={handleChange('height')}
-                      disabled={!isEditing}
-                      placeholder="Enter your height"
-                    />
-                  </Grid>
-                </Grid>
-              </Paper>
-
-              {/* Professional Information */}
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 4, 
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                }}
-              >
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                  Professional & Education
-                </Typography>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Occupation
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={profileData.work}
-                      onChange={handleChange('work')}
-                      disabled={!isEditing}
-                      placeholder="Enter your occupation"
-                      InputProps={{
-                        startAdornment: <Work sx={{ color: 'text.secondary', mr: 1 }} />,
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Education
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={profileData.education}
-                      onChange={handleChange('education')}
-                      disabled={!isEditing}
-                      placeholder="Enter your education"
-                      InputProps={{
-                        startAdornment: <School sx={{ color: 'text.secondary', mr: 1 }} />,
-                      }}
-                    />
-                  </Grid>
-                </Grid>
-              </Paper>
-
-              {/* Lifestyle */}
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 4, 
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                }}
-              >
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                  Lifestyle Preferences
-                </Typography>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Exercise
-                    </Typography>
-                    <FormControl fullWidth disabled={!isEditing}>
-                      <Select
-                        value={profileData.exercise || ''}
-                        onChange={handleChange('exercise')}
-                      >
-                        <MenuItem value="Never">Never</MenuItem>
-                        <MenuItem value="Rarely">Rarely</MenuItem>
-                        <MenuItem value="Sometimes">Sometimes</MenuItem>
-                        <MenuItem value="Regularly">Regularly</MenuItem>
-                        <MenuItem value="Daily">Daily</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Drinking
-                    </Typography>
-                    <FormControl fullWidth disabled={!isEditing}>
-                      <Select
-                        value={profileData.drinking || ''}
-                        onChange={handleChange('drinking')}
-                      >
-                        <MenuItem value="Never">Never</MenuItem>
-                        <MenuItem value="Rarely">Rarely</MenuItem>
-                        <MenuItem value="Socially">Socially</MenuItem>
-                        <MenuItem value="Regularly">Regularly</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Smoking
-                    </Typography>
-                    <FormControl fullWidth disabled={!isEditing}>
-                      <Select
-                        value={profileData.smoking || ''}
-                        onChange={handleChange('smoking')}
-                      >
-                        <MenuItem value="Never">Never</MenuItem>
-                        <MenuItem value="Socially">Socially</MenuItem>
-                        <MenuItem value="Regularly">Regularly</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Children
-                    </Typography>
-                    <FormControl fullWidth disabled={!isEditing}>
-                      <Select
-                        value={profileData.children || ''}
-                        onChange={handleChange('children')}
-                      >
-                        <MenuItem value="Don't want">Don't want</MenuItem>
-                        <MenuItem value="Want someday">Want someday</MenuItem>
-                        <MenuItem value="Have and want more">Have and want more</MenuItem>
-                        <MenuItem value="Have and don't want more">Have and don't want more</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
-              </Paper>
-
-              {/* Interests */}
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 4, 
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                }}
-              >
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                  Interests & Hobbies
-                </Typography>
-                
-                {isEditing && (
-                  <Box sx={{ mb: 3 }}>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <TextField
-                        size="small"
-                        placeholder="Add new interest"
-                        value={newInterest}
-                        onChange={(e) => setNewInterest(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleInterestAdd()}
-                      />
-                      <Button 
-                        variant="outlined" 
-                        onClick={handleInterestAdd}
-                        disabled={!newInterest.trim()}
-                      >
-                        Add
-                      </Button>
                     </Box>
-                  </Box>
-                )}
+                  ))}
+                </Box>
+              )}
+            </SectionCard>
+          </Box>
 
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {profileData.interests.map((interest) => (
+          {/* Interests — row 3 left */}
+          <Box sx={{ gridColumn: { xs: '1 / -1', md: '1 / 6', lg: '1 / 5' }, gridRow: { md: '3' } }}>
+            <SectionCard title="Interests" compact>
+              {isEditing && (
+                <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    placeholder="Add interest"
+                    value={newInterest}
+                    onChange={(e) => setNewInterest(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleInterestAdd()}
+                  />
+                  <Button variant="outlined" size="small" onClick={handleInterestAdd} disabled={!newInterest.trim()}>
+                    Add
+                  </Button>
+                </Stack>
+              )}
+              <Stack direction="row" flexWrap="wrap" gap={0.75}>
+                {profileData.interests.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">No interests yet.</Typography>
+                ) : (
+                  profileData.interests.map((interest) => (
                     <Chip
                       key={interest}
                       label={interest}
-                      variant="filled"
-                      deleteIcon={isEditing ? <Close /> : undefined}
+                      size="small"
                       onDelete={isEditing ? () => handleInterestRemove(interest) : undefined}
-                      sx={{
-                        backgroundColor: 'secondary.main',
-                        color: 'white',
-                        fontWeight: 500,
-                        '&:hover': {
-                          backgroundColor: 'secondary.dark',
-                        },
-                      }}
+                      sx={{ fontWeight: 600, bgcolor: '#EEF2FF', color: '#4338CA', height: 26 }}
                     />
-                  ))}
+                  ))
+                )}
+              </Stack>
+            </SectionCard>
+          </Box>
+
+          {/* Lifestyle + Dating — row 3 right */}
+          <Box
+            sx={{
+              gridColumn: { xs: '1 / -1', md: '6 / -1', lg: '5 / -1' },
+              gridRow: { md: '3' },
+              display: 'grid',
+              gap: { xs: 2, md: 1.5 },
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+            }}
+          >
+            <SectionCard title="Lifestyle" compact>
+              <Grid container spacing={1.5}>
+                {[
+                  { label: 'Exercise', field: 'exercise', options: ['Never', 'Rarely', 'Sometimes', 'Regularly', 'Daily'] },
+                  { label: 'Drinking', field: 'drinking', options: ['Never', 'Rarely', 'Socially', 'Regularly'] },
+                  { label: 'Smoking', field: 'smoking', options: ['Never', 'Socially', 'Regularly'] },
+                  { label: 'Children', field: 'children', options: ["Don't want", 'Want someday', 'Have and want more', "Have and don't want more"] },
+                ].map(({ label, field, options }) => (
+                  <Grid item xs={12} sm={6} key={field}>
+                    <FieldLabel>{label}</FieldLabel>
+                    <FormControl fullWidth size="small" disabled={!isEditing}>
+                      <Select value={profileData[field] || ''} onChange={handleChange(field)} displayEmpty>
+                        <MenuItem value="" disabled>Select</MenuItem>
+                        {options.map((opt) => (
+                          <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                ))}
+              </Grid>
+            </SectionCard>
+
+            <SectionCard title="Dating preferences" compact>
+              <Stack spacing={1.5}>
+                <Box>
+                  <FieldLabel>I am</FieldLabel>
+                  <FormControl fullWidth size="small" disabled={!isEditing}>
+                    <Select value={profileData.gender || ''} onChange={handleChange('gender')} displayEmpty>
+                      <MenuItem value="" disabled>Select</MenuItem>
+                      <MenuItem value="male">Male</MenuItem>
+                      <MenuItem value="female">Female</MenuItem>
+                      <MenuItem value="non-binary">Non-binary</MenuItem>
+                      <MenuItem value="other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Box>
-              </Paper>
-
-              {/* Dating Preferences */}
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 4, 
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                }}
-              >
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>
-                  Dating Preferences
-                </Typography>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      I am
-                    </Typography>
-                    <FormControl fullWidth disabled={!isEditing}>
-                      <Select
-                        value={profileData.gender || ''}
-                        onChange={handleChange('gender')}
-                      >
-                        <MenuItem value="male">Male</MenuItem>
-                        <MenuItem value="female">Female</MenuItem>
-                        <MenuItem value="non-binary">Non-binary</MenuItem>
-                        <MenuItem value="other">Other</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" fontWeight="500" color="text.primary" sx={{ mb: 1 }}>
-                      Interested in
-                    </Typography>
-                    <FormControl fullWidth disabled={!isEditing}>
-                      <Select
-                        value={profileData.preferences_gender?.[0] || ''}
-                        onChange={handleChange('preferences_gender')}
-                      >
-                        <MenuItem value="male">Male</MenuItem>
-                        <MenuItem value="female">Female</MenuItem>
-                        <MenuItem value="everyone">Everyone</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
-              </Paper>
-            </Stack>
-          </Grid>
-        </Grid>
+                <Box>
+                  <FieldLabel>Interested in</FieldLabel>
+                  <FormControl fullWidth size="small" disabled={!isEditing}>
+                    <Select
+                      value={profileData.preferences_gender?.[0] || ''}
+                      onChange={(e) => setProfileData({ ...profileData, preferences_gender: [e.target.value] })}
+                      displayEmpty
+                    >
+                      <MenuItem value="" disabled>Select</MenuItem>
+                      <MenuItem value="male">Male</MenuItem>
+                      <MenuItem value="female">Female</MenuItem>
+                      <MenuItem value="everyone">Everyone</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Stack>
+            </SectionCard>
+          </Box>
+        </Box>
       </Container>
     </Box>
   );
 };
 
-export default ProfilePage; 
+export default ProfilePage;

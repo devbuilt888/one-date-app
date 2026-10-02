@@ -20,35 +20,57 @@ import {
   Work,
   AutoAwesome,
   Verified,
-  Info,
   MoreHoriz,
 } from '@mui/icons-material';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../App';
-import { supabase, matching } from '../../lib/supabase';
+import { supabase, matching, quizCompletions, profiles as profileApi } from '../../lib/supabase';
 import { SWIPE_LIMIT, SWIPE_RESET_MS, readOrInitializeSwipeState, writeSwipeState } from '../../lib/swipes';
+import { buildQuizComparison } from '../../lib/quizReport';
+import MatchQuizReportModal from './MatchQuizReportModal';
 
-const MatchingPage = () => {
+const PREVIEW_PROFILES = [
+  {
+    id: 'preview-maya',
+    name: 'Maya Chen',
+    age: 26,
+    bio: 'Coffee walks, new restaurants, and long conversations.',
+    location: 'Uptown',
+    work: 'Product designer',
+    education: '',
+    interests: ['Coffee', 'Cooking', 'Live music'],
+    photos: ['/images/users/sarahJohnson.jpeg'],
+    distance: '2 mi away',
+    verified: true,
+    compatibility: 92,
+  },
+];
+
+const MatchingPage = ({ preview = false }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [profiles, setProfiles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState(preview ? PREVIEW_PROFILES : []);
+  const [loading, setLoading] = useState(!preview);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [matches, setMatches] = useState([]);
-  const [showMatch, setShowMatch] = useState(false);
+  const [showMatchReport, setShowMatchReport] = useState(false);
   const [matchedUser, setMatchedUser] = useState(null);
+  const [quizComparisons, setQuizComparisons] = useState([]);
   const [remainingSwipes, setRemainingSwipes] = useState(SWIPE_LIMIT);
   const [swipesResetAt, setSwipesResetAt] = useState(Date.now() + SWIPE_RESET_MS);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (preview || !user?.id) return;
     const { remaining, resetAt } = readOrInitializeSwipeState(user.id);
     setRemainingSwipes(remaining);
     setSwipesResetAt(resetAt);
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (preview || !user?.id) return;
 
     const timer = setInterval(() => {
       const now = Date.now();
@@ -81,6 +103,7 @@ const MatchingPage = () => {
   const timeUntilSwipeReset = formatMsToClock(swipesResetAt - Date.now());
 
   useEffect(() => {
+    if (preview) return;
     const fetchProfiles = async () => {
       try {
         setLoading(true);
@@ -119,6 +142,11 @@ const MatchingPage = () => {
     };
 
     fetchProfiles();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (preview || !user?.id) return;
+    profileApi.getById(user.id).then(({ data }) => setCurrentUserProfile(data));
   }, [user?.id]);
 
   const currentProfile = useMemo(() => profiles[currentIndex], [profiles, currentIndex]);
@@ -329,9 +357,6 @@ const MatchingPage = () => {
                   {profile.age}
                 </Typography>
               </Box>
-              <IconButton size="small" sx={{ color: 'text.secondary' }}>
-                <Info />
-              </IconButton>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
@@ -397,7 +422,7 @@ const MatchingPage = () => {
   };
 
   const handleSwipe = async (action) => {
-    if (!canSwipe) return;
+    if (preview || !canSwipe) return;
 
     const nextSwipes = Math.max(0, remainingSwipes - 1);
     setRemainingSwipes(nextSwipes);
@@ -413,12 +438,21 @@ const MatchingPage = () => {
         
         if (data?.matched) {
           setMatches([...matches, currentProfile]);
-          setMatchedUser(currentProfile); // Store the matched user before updating index
-          setShowMatch(true);
-          setTimeout(() => {
-            setShowMatch(false);
-            setMatchedUser(null); // Clear matched user after notification
-          }, 1500);
+          setMatchedUser(currentProfile);
+
+          const [{ data: myCompletions }, { data: theirCompletions }] = await Promise.all([
+            quizCompletions.getByUser(user.id),
+            quizCompletions.getByUser(currentProfile.id),
+          ]);
+
+          const comparison = buildQuizComparison(
+            user.id,
+            currentProfile.id,
+            myCompletions || [],
+            theirCompletions || []
+          );
+          setQuizComparisons(comparison);
+          setShowMatchReport(true);
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -615,44 +649,25 @@ const MatchingPage = () => {
           </Stack>
         </Paper>
 
-        {/* Match Notification */}
-        {showMatch && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 1000,
-            }}
-          >
-            <Paper
-              elevation={3}
-              sx={{
-                p: 4,
-                textAlign: 'center',
-                backgroundColor: 'success.main',
-                color: 'white',
-                borderRadius: 3,
-                maxWidth: 300,
-              }}
-            >
-              <AutoAwesome sx={{ fontSize: 48, mb: 2 }} />
-              <Typography variant="h4" fontWeight="700" sx={{ mb: 1 }}>
-                It's a Match!
-              </Typography>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                You and {matchedUser?.name || 'someone'} liked each other
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                Start chatting now!
-              </Typography>
-            </Paper>
-          </motion.div>
-        )}
+        {/* Match quiz report modal */}
+        <MatchQuizReportModal
+          open={showMatchReport}
+          onClose={() => {
+            setShowMatchReport(false);
+            setMatchedUser(null);
+            setQuizComparisons([]);
+          }}
+          currentUserName={
+            currentUserProfile?.display_name ||
+            user?.user_metadata?.display_name ||
+            'You'
+          }
+          matchedUserName={matchedUser?.name || 'Your match'}
+          currentUserPhoto={currentUserProfile?.photo_urls?.[0]}
+          matchedUserPhoto={matchedUser?.photos?.[0]}
+          comparisons={quizComparisons}
+          onStartChat={() => navigate('/chats')}
+        />
       </Container>
     </Box>
   );

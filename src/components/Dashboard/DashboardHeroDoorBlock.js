@@ -13,6 +13,7 @@ import { quizDefinitions, readQuizResult } from '../../lib/quizzes';
 import { DOOR_OPTIONS } from '../../lib/doorOptions';
 import { readOrInitializeSwipeState } from '../../lib/swipes';
 import { useSeasonRuntime } from '../../context/SeasonRuntimeContext';
+import { useOptionalQuizCompletions } from '../../context/QuizCompletionsContext';
 
 const DOOR_UNLOCK_SECONDS = 60;
 
@@ -28,6 +29,13 @@ const DashboardHeroDoorBlock = ({ mode = 'dashboard', user }) => {
   const location = useLocation();
   const isLanding = mode === 'landing';
   const { doorImage: selectedDoorImage, requiredQuizIds, snapshot } = useSeasonRuntime();
+  const completionsCtx = useOptionalQuizCompletions();
+
+  const checkQuizCompleted = (quizId) => {
+    if (completionsCtx?.isCompleted) return completionsCtx.isCompleted(quizId);
+    const local = readQuizResult(user?.id, quizId);
+    return Boolean(local?.answers || local?.resultLabel);
+  };
 
   const [doorPhase, setDoorPhase] = useState('idle');
   const [remainingSeconds, setRemainingSeconds] = useState(DOOR_UNLOCK_SECONDS);
@@ -102,10 +110,10 @@ const DashboardHeroDoorBlock = ({ mode = 'dashboard', user }) => {
   const quizCompletionMap = useMemo(() => {
     const map = {};
     requiredQuizzes.forEach((quiz) => {
-      map[quiz.id] = Boolean(readQuizResult(user?.id, quiz.id)?.answers);
+      map[quiz.id] = checkQuizCompleted(quiz.id);
     });
     return map;
-  }, [requiredQuizzes, user?.id]);
+  }, [requiredQuizzes, completionsCtx, user?.id]);
 
   const completedQuizCount = useMemo(
     () => requiredQuizzes.filter((quiz) => quizCompletionMap[quiz.id]).length,
@@ -442,7 +450,22 @@ const DashboardHeroDoorBlock = ({ mode = 'dashboard', user }) => {
                         {quiz.title}
                       </Typography>
                       {completed ? (
-                        <Chip label="Done" color="success" size="small" />
+                        <Box
+                          component="span"
+                          sx={{
+                            px: 1.25,
+                            py: 0.35,
+                            borderRadius: 1,
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            bgcolor: 'success.main',
+                            color: '#fff',
+                            userSelect: 'none',
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          Done
+                        </Box>
                       ) : (
                         <Button size="small" variant="outlined" onClick={() => quizNavigate(quiz.id)}>
                           Start

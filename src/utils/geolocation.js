@@ -141,3 +141,39 @@ export const formatDistance = (distanceKm) => {
   }
   return `${distanceKm.toFixed(1)}km`
 }
+
+/** City/area label for admin and profile display */
+export const formatProfileLocation = (profile) => {
+  if (!profile) return '—'
+
+  const city = profile.location?.trim()
+  if (city) return city
+
+  if (profile.lat != null && profile.lng != null) {
+    const lat = Number(profile.lat)
+    const lng = Number(profile.lng)
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+      return `~${lat.toFixed(1)}°, ${lng.toFixed(1)}° (GPS)`
+    }
+  }
+
+  return '—'
+}
+
+/** Extra location detail for admin expanded rows */
+export const formatProfileLocationDetail = (profile) => {
+  if (!profile) return null
+
+  const parts = []
+  if (profile.location?.trim()) {
+    parts.push(`City: ${profile.location.trim()}`)
+  }
+  if (profile.lat != null && profile.lng != null) {
+    parts.push(`Coordinates: ${Number(profile.lat).toFixed(4)}, ${Number(profile.lng).toFixed(4)}`)
+  }
+  if (profile.geohash) {
+    parts.push(`Geohash: ${profile.geohash}`)
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : null
+}

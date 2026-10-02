@@ -22,7 +22,7 @@ import {
   Refresh,
 } from '@mui/icons-material';
 
-const AIChat = ({ isMinimized, onToggleMinimize, onClose }) => {
+const AIChat = ({ isMinimized, onToggleMinimize = () => {}, onClose = () => {} }) => {
   const [messages, setMessages] = useState([
     {
       id: 1,

@@ -17,6 +17,7 @@ const ReusableQuiz = ({
   questions = [],
   onComplete,
   submitLabel = 'Submitting...',
+  readOnly = false,
 }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -31,7 +32,7 @@ const ReusableQuiz = ({
   }, [currentQuestionIndex, totalQuestions]);
 
   const handleOptionSelect = async (questionId, optionValue) => {
-    if (!questionId || isSubmitting) return;
+    if (readOnly || !questionId || isSubmitting) return;
 
     const nextAnswers = { ...answers, [questionId]: optionValue };
     setAnswers(nextAnswers);

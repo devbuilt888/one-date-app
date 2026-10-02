@@ -1,3 +1,6 @@
+import { computeQuizResult } from './quizScoring';
+import { quizCompletions } from './supabase';
+
 export const QUIZ_STORAGE_PREFIX = 'onedate:quizResults';
 
 export const quizDefinitions = [
@@ -330,18 +333,31 @@ export const getQuizStorageKey = (userId, quizId) => {
 };
 
 export const saveQuizResult = (userId, quizId, answers) => {
+  const { resultLabel, resultKey } = computeQuizResult(quizId, answers);
+  const completedAt = new Date().toISOString();
+
   try {
     const key = getQuizStorageKey(userId, quizId);
     localStorage.setItem(
       key,
       JSON.stringify({
         answers,
-        completedAt: new Date().toISOString(),
+        resultLabel,
+        resultKey,
+        completedAt,
       })
     );
   } catch (error) {
     console.error('Failed to save quiz result:', error);
   }
+
+  if (userId) {
+    quizCompletions.save(userId, quizId, resultLabel, resultKey).catch((error) => {
+      console.error('Failed to save quiz completion to database:', error);
+    });
+  }
+
+  return { resultLabel, resultKey, completedAt };
 };
 
 export const readQuizResult = (userId, quizId) => {

@@ -15,7 +15,6 @@ import {
 import {
   Dashboard as DashboardIcon,
   Favorite,
-  Event,
   Person,
   Chat,
   ExitToApp,
@@ -23,7 +22,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../App';
 
-const Navbar = () => {
+const Navbar = ({ embedded = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -31,14 +30,13 @@ const Navbar = () => {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path === '/dashboard') return 0;
-    if (path === '/events') return 1;
-    if (path === '/chats') return 2;
-    if (path === '/profile') return 3;
+    if (path === '/chats') return 1;
+    if (path === '/profile') return 2;
     return false;
   };
 
   const handleNavigationChange = (event, newValue) => {
-    const routes = ['/dashboard', '/events', '/chats', '/profile'];
+    const routes = ['/dashboard', '/chats', '/profile'];
     navigate(routes[newValue]);
   };
 
@@ -152,8 +150,8 @@ const Navbar = () => {
       {/* Bottom Navigation */}
       <Paper 
         sx={{ 
-          position: 'fixed', 
-          bottom: 0, 
+          position: embedded ? 'static' : 'fixed', 
+          bottom: embedded ? 'auto' : 0, 
           left: 0, 
           right: 0, 
           zIndex: 1000,
@@ -228,10 +226,6 @@ const Navbar = () => {
           <BottomNavigationAction
             label="Home"
             icon={<DashboardIcon />}
-          />
-          <BottomNavigationAction
-            label="Events"
-            icon={<Event />}
           />
           <BottomNavigationAction
             label="Chats"

@@ -1,3 +1,5 @@
+import { personalEventsDb } from './supabase';
+
 export const PERSONAL_EVENT_TYPES = [
   { value: 'restaurant', label: 'Restaurant date' },
   { value: 'social', label: 'Social gathering' },
@@ -5,6 +7,18 @@ export const PERSONAL_EVENT_TYPES = [
 ];
 
 export const PERSONAL_EVENTS_STORAGE_KEY = 'onedate:personalEvents:v2';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isUuid(value) {
+  return typeof value === 'string' && UUID_RE.test(value);
+}
+
+/** True when the event exists in Supabase (not local demo placeholders). */
+export function isPersistedPersonalEvent(event) {
+  if (!event?.id || !event?.hostUserId) return false;
+  return isUuid(event.id) && isUuid(event.hostUserId);
+}
 
 function monthKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -40,73 +54,104 @@ export function writePersonalEvents(events) {
   localStorage.setItem(PERSONAL_EVENTS_STORAGE_KEY, JSON.stringify(events));
 }
 
-export function addPersonalEvent(event) {
+export function mapDbPersonalEvent(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    hostUserId: row.host_user_id,
+    hostName: row.host_name || row.host?.display_name || 'Someone',
+    title: row.title,
+    approximateLocation: row.approximate_location,
+    eventType: row.event_type,
+    description: row.description,
+    datetime: row.event_datetime,
+    createdAt: row.created_at,
+  };
+}
+
+/** Load events from Supabase and cache in localStorage for the rest of the app. */
+export async function syncPersonalEventsFromDb() {
+  const { data, error } = await personalEventsDb.getAll();
+  if (error) {
+    console.error('Failed to sync personal events from database:', error);
+    return readPersonalEvents();
+  }
+
+  if (!data?.length) {
+    return readPersonalEvents();
+  }
+
+  const mapped = data.map(mapDbPersonalEvent);
+  writePersonalEvents(mapped);
+  return mapped;
+}
+
+export async function addPersonalEvent(event) {
   const list = readPersonalEvents();
-  const id =
+  const localId =
     typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : `evt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-  list.unshift({
+  const record = {
     ...event,
-    id,
+    id: localId,
     createdAt: new Date().toISOString(),
-  });
+  };
+  list.unshift(record);
   writePersonalEvents(list);
-  return id;
+
+  const { data, error } = await personalEventsDb.save(event);
+  if (error) {
+    console.error('Failed to save personal event to database:', error);
+    return record;
+  }
+
+  if (data) {
+    const synced = mapDbPersonalEvent(data);
+    const updated = readPersonalEvents().map((item) =>
+      item.id === localId ? synced : item
+    );
+    writePersonalEvents(updated);
+    return synced;
+  }
+
+  return record;
 }
 
 export function getPersonalEventById(id) {
   return readPersonalEvents().find((e) => e.id === id) || null;
 }
 
+export function getDismissedEventsStorageKey(userId) {
+  return `onedate:dismissedPersonalEvents:${userId}`;
+}
+
+export function readDismissedPersonalEventIds(userId) {
+  if (!userId) return [];
+  try {
+    const raw = localStorage.getItem(getDismissedEventsStorageKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function dismissPersonalEvent(userId, eventId) {
+  if (!userId || !eventId) return;
+  const current = readDismissedPersonalEventIds(userId);
+  if (current.includes(eventId)) return;
+  localStorage.setItem(
+    getDismissedEventsStorageKey(userId),
+    JSON.stringify([...current, eventId])
+  );
+}
+
 export function getEventDisplayTitle(ev) {
   if (!ev) return '';
   if (ev.title && String(ev.title).trim()) return ev.title.trim();
   return `${ev.hostName || 'Someone'}'s plan`;
-}
-
-const DEMO_HOST_IDS = ['demo-host-alex', 'demo-host-jordan', 'demo-host-sam'];
-
-export function ensureDemoPersonalEvents() {
-  let list = readPersonalEvents();
-  if (list.length > 0) return;
-  const base = Date.now();
-  list = [
-    {
-      id: `demo-evt-${base}-1`,
-      hostUserId: DEMO_HOST_IDS[0],
-      hostName: 'Alex',
-      title: 'I want a date to try a new Indian restaurant in town',
-      approximateLocation: 'Downtown — within 2 mi',
-      eventType: 'restaurant',
-      description: 'Looking for someone who likes spice-level honesty and sharing appetizers.',
-      datetime: new Date(base + 86400000 * 2).toISOString(),
-      createdAt: new Date(base - 86400000).toISOString(),
-    },
-    {
-      id: `demo-evt-${base}-2`,
-      hostUserId: DEMO_HOST_IDS[1],
-      hostName: 'Jordan',
-      title: "Be my date to my sister's wedding?",
-      approximateLocation: 'Orlando',
-      eventType: 'social',
-      description: 'Semi-formal, need a plus-one who can handle a loud family.',
-      datetime: new Date(base + 86400000 * 5).toISOString(),
-      createdAt: new Date(base - 43200000).toISOString(),
-    },
-    {
-      id: `demo-evt-${base}-3`,
-      hostUserId: DEMO_HOST_IDS[2],
-      hostName: 'Sam',
-      title: 'Date at the beach cleanup event',
-      approximateLocation: 'Daytona Beach',
-      eventType: 'charity',
-      description: 'Morning volunteer shift, then walk the strip for coffee.',
-      datetime: new Date(base + 86400000 * 9).toISOString(),
-      createdAt: new Date(base - 7200000).toISOString(),
-    },
-  ];
-  writePersonalEvents(list);
 }
 
 export function labelForEventType(value) {
