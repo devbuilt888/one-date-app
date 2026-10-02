@@ -18,7 +18,6 @@ import {
   Refresh,
   LocationOn,
   Work,
-  AutoAwesome,
   Verified,
   MoreHoriz,
 } from '@mui/icons-material';
@@ -67,7 +66,7 @@ const MatchingPage = ({ preview = false }) => {
     const { remaining, resetAt } = readOrInitializeSwipeState(user.id);
     setRemainingSwipes(remaining);
     setSwipesResetAt(resetAt);
-  }, [user?.id]);
+  }, [preview, user?.id]);
 
   useEffect(() => {
     if (preview || !user?.id) return;
@@ -83,7 +82,7 @@ const MatchingPage = ({ preview = false }) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [user?.id, swipesResetAt]);
+  }, [preview, user?.id, swipesResetAt]);
 
   const persistSwipeState = (remaining, resetAt) => {
     if (!user?.id) return;
@@ -142,12 +141,12 @@ const MatchingPage = ({ preview = false }) => {
     };
 
     fetchProfiles();
-  }, [user?.id]);
+  }, [preview, user?.id]);
 
   useEffect(() => {
     if (preview || !user?.id) return;
     profileApi.getById(user.id).then(({ data }) => setCurrentUserProfile(data));
-  }, [user?.id]);
+  }, [preview, user?.id]);
 
   const currentProfile = useMemo(() => profiles[currentIndex], [profiles, currentIndex]);
 

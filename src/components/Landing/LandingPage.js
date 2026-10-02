@@ -28,8 +28,8 @@ import { useAuth } from '../../App';
 /** Edit this date to change every countdown on the page */
 const LAUNCH_TARGET_ISO = '2026-07-05T23:59:00-04:00';
 
-const getCountdownParts = (targetIso) => {
-  const msLeft = new Date(targetIso).getTime() - Date.now();
+const getCountdownParts = (targetIso, now = Date.now()) => {
+  const msLeft = new Date(targetIso).getTime() - now;
   const clamped = Math.max(msLeft, 0);
   const totalSeconds = Math.floor(clamped / 1000);
   const days = Math.floor(totalSeconds / 86400);
@@ -117,7 +117,7 @@ const LandingPage = () => {
   }, []);
 
   const launchDate = useMemo(() => new Date(LAUNCH_TARGET_ISO), []);
-  const countdown = useMemo(() => getCountdownParts(LAUNCH_TARGET_ISO), [nowTick]);
+  const countdown = useMemo(() => getCountdownParts(LAUNCH_TARGET_ISO, nowTick), [nowTick]);
 
   const founderSpotsLeft = Math.max(1, Math.floor(countdown.days * 3.7 + countdown.hours * 0.4));
 

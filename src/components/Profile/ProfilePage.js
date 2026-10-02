@@ -185,7 +185,7 @@ const ProfilePage = ({ preview = false }) => {
     };
 
     fetchProfile();
-  }, [user, loadQuizResults]);
+  }, [preview, user, loadQuizResults]);
 
   const handleChange = (field) => (event) => {
     setProfileData({ ...profileData, [field]: event.target.value });

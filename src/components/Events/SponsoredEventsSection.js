@@ -141,7 +141,7 @@ const SponsoredEventsSection = ({ compact = false, showVendorLink = false, event
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [presetEvents]);
 
   if (!loaded || events.length === 0) {
     return null;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Grid,
   Paper,
@@ -31,11 +31,11 @@ const DashboardHeroDoorBlock = ({ mode = 'dashboard', user }) => {
   const { doorImage: selectedDoorImage, requiredQuizIds, snapshot } = useSeasonRuntime();
   const completionsCtx = useOptionalQuizCompletions();
 
-  const checkQuizCompleted = (quizId) => {
+  const checkQuizCompleted = useCallback((quizId) => {
     if (completionsCtx?.isCompleted) return completionsCtx.isCompleted(quizId);
     const local = readQuizResult(user?.id, quizId);
     return Boolean(local?.answers || local?.resultLabel);
-  };
+  }, [completionsCtx, user?.id]);
 
   const [doorPhase, setDoorPhase] = useState('idle');
   const [remainingSeconds, setRemainingSeconds] = useState(DOOR_UNLOCK_SECONDS);
@@ -113,7 +113,7 @@ const DashboardHeroDoorBlock = ({ mode = 'dashboard', user }) => {
       map[quiz.id] = checkQuizCompleted(quiz.id);
     });
     return map;
-  }, [requiredQuizzes, completionsCtx, user?.id]);
+  }, [requiredQuizzes, checkQuizCompleted]);
 
   const completedQuizCount = useMemo(
     () => requiredQuizzes.filter((quiz) => quizCompletionMap[quiz.id]).length,
