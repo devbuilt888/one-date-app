@@ -106,7 +106,7 @@ const ChatsPage = ({ preview = false }) => {
       }
     };
     loadConversations();
-  }, [user?.id]);
+  }, [preview, user?.id]);
 
   const handleSendMessage = async () => {
     if (preview) return;
@@ -182,7 +182,7 @@ const ChatsPage = ({ preview = false }) => {
     };
     
     loadMessages();
-  }, [selectedChat, user?.id]);
+  }, [preview, selectedChat, user?.id]);
 
   // Subscribe to new messages for the selected chat
   useEffect(() => {
@@ -230,7 +230,7 @@ const ChatsPage = ({ preview = false }) => {
       console.log('Cleaning up subscription for conversation:', selectedChat.id);
       subscription.unsubscribe();
     };
-  }, [selectedChat, user?.id]);
+  }, [preview, selectedChat, user?.id]);
 
   const filteredChats = conversations.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase())
