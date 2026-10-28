@@ -17,7 +17,7 @@ A sophisticated React-based dating application with professional design inspired
 - **Frontend**: React 19 with Material-UI
 - **Styling**: Professional theme with sophisticated color palette
 - **Animations**: Framer Motion for smooth interactions
-- **AI Integration**: OpenAI GPT for dating coaching
+- **AI Integration**: OpenAI GPT for dating coaching event creation
 - **Routing**: React Router for navigation
 
 ## Setup Instructions
